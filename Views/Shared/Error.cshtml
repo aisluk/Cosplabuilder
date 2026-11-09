@@ -1,0 +1,21 @@
+@model ErrorViewModel
+@{
+    ViewData["Title"] = Model.Title;
+}
+
+<div class="cb-panel">
+    <span class="cb-badge cb-status-abandoned">HTTP @Model.StatusCode</span>
+    <h1 class="cb-section-title cb-mt-1">@Model.Title</h1>
+    <p class="cb-card-desc">@Model.Message</p>
+
+    @if (Model.ShowRequestId)
+    {
+        <p class="cb-muted">Trace ID: <code>@Model.RequestId</code></p>
+    }
+
+    <div class="cb-hero-actions cb-mt-1">
+        <a class="cb-btn cb-btn-primary" href="/projects">Back to Projects</a>
+        <a class="cb-btn cb-btn-secondary" href="/">Home &amp; API Console</a>
+        <a class="cb-btn cb-btn-outline" href="/login">Sign In / Switch Role</a>
+    </div>
+</div>

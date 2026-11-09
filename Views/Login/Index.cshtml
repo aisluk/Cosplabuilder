@@ -1,0 +1,36 @@
+@{
+    ViewData["Title"] = "Sign In";
+    string? returnUrl = ViewData["ReturnUrl"] as string;
+    string? error = ViewData["Error"] as string;
+}
+
+<div class="cb-panel cb-auth-card">
+    <h1 class="cb-panel-title">Sign In to Cosplabuilder</h1>
+    <p class="cb-card-desc">
+        Enter your account credentials to manage your cosplay projects, workshop tools, and build tasks.
+    </p>
+
+    @if (!string.IsNullOrWhiteSpace(error))
+    {
+        <div class="cb-alert cb-alert-error">@error</div>
+    }
+
+    <form method="post" action="/login">
+        <input type="hidden" name="returnUrl" value="@returnUrl" />
+
+        <div class="cb-form-group">
+            <label class="cb-label" for="usernameOrEmail">Username or Email</label>
+            <input class="cb-input" type="text" id="usernameOrEmail" name="usernameOrEmail" placeholder="Username or email" required />
+        </div>
+
+        <div class="cb-form-group">
+            <label class="cb-label" for="password">Password</label>
+            <input class="cb-input" type="password" id="password" name="password" placeholder="Enter password" required />
+        </div>
+
+        <div class="cb-hero-actions cb-mt-1">
+            <button type="submit" class="cb-btn cb-btn-primary">Sign In</button>
+            <a class="cb-btn cb-btn-outline" href="/register">Create New Account</a>
+        </div>
+    </form>
+</div>

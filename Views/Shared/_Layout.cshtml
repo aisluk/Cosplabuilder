@@ -1,0 +1,93 @@
+@using Cosplabuilder.Helpers
+@{
+    bool isAuth = UserAccess.IsAuthenticated(User);
+    bool isAdmin = UserAccess.IsAdmin(User);
+    string username = UserAccess.GetUsername(User);
+    string role = UserAccess.GetRole(User);
+    string roleClass = role == UserRoles.Admin
+        ? "cb-badge cb-role-admin"
+        : (role == UserRoles.Member ? "cb-badge cb-role-member" : "cb-badge cb-role-guest");
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Cosplabuilder</title>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+    <header class="cb-header">
+        <div class="cb-nav-container">
+            <a class="cb-brand" href="/">
+                <span class="cb-brand-accent">&#9876;</span> Cosplabuilder
+            </a>
+
+            <ul class="cb-nav-links">
+                <li><a class="cb-nav-link" href="/">Home</a></li>
+                <li><a class="cb-nav-link" href="/projects">Projects</a></li>
+                @if (isAuth)
+                {
+                    <li><a class="cb-nav-link" href="/tools">Tools</a></li>
+                    <li><a class="cb-nav-link" href="/materials">Materials</a></li>
+                    <li><a class="cb-nav-link" href="/dashboard">Dashboard</a></li>
+                }
+                @if (isAdmin)
+                {
+                    <li><a class="cb-nav-link" href="/Privacy">REST API Spec</a></li>
+                }
+            </ul>
+
+            <div class="cb-auth-bar">
+                <span class="@roleClass">@role</span>
+                @if (isAuth)
+                {
+                    <a class="cb-btn cb-btn-outline cb-btn-sm" href="/profile">@username</a>
+                    <form class="cb-inline-form" method="post" action="/logout">
+                        <button type="submit" class="cb-btn cb-btn-secondary cb-btn-sm">Sign Out</button>
+                    </form>
+                }
+                else
+                {
+                    <a class="cb-btn cb-btn-outline cb-btn-sm" href="/login">Sign In</a>
+                    <a class="cb-btn cb-btn-primary cb-btn-sm" href="/register">Register</a>
+                }
+            </div>
+        </div>
+    </header>
+
+    <main role="main" class="cb-main">
+        @if (TempData["FlashSuccess"] is string successMsg && !string.IsNullOrWhiteSpace(successMsg))
+        {
+            <div class="cb-alert cb-alert-success">@successMsg</div>
+        }
+        @if (TempData["FlashError"] is string errorMsg && !string.IsNullOrWhiteSpace(errorMsg))
+        {
+            <div class="cb-alert cb-alert-error">@errorMsg</div>
+        }
+
+        @RenderBody()
+    </main>
+
+    <footer class="cb-footer">
+        <div class="cb-footer-inner">
+            <div>&copy; 2026 Cosplabuilder &mdash; Cosplay Project &amp; Workshop Planner</div>
+            <div>
+                <a href="/">Home</a> &middot;
+                <a href="/projects">Projects</a>
+                @if (isAuth)
+                {
+                    <span>&middot; <a href="/tools">Tools</a> &middot; <a href="/materials">Materials</a> &middot; <a href="/dashboard">Dashboard</a></span>
+                }
+                @if (isAdmin)
+                {
+                    <span>&middot; <a href="/Privacy">REST API Spec</a></span>
+                }
+            </div>
+        </div>
+    </footer>
+
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

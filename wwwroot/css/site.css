@@ -1,0 +1,805 @@
+/* ==========================================================================
+   Cosplabuilder — Uniform Application Stylesheet (HCJ Frontend Model)
+   All styling declarations are centralized in this dedicated file.
+   ========================================================================== */
+
+:root {
+    --cb-bg: #0f172a;
+    --cb-bg-elevated: #1e293b;
+    --cb-bg-card: #1e293b;
+    --cb-bg-input: #0f172a;
+    --cb-border: #334155;
+    --cb-text: #f8fafc;
+    --cb-text-muted: #94a3b8;
+    --cb-primary: #8b5cf6;
+    --cb-primary-hover: #7c3aed;
+    --cb-accent: #f59e0b;
+    --cb-success: #10b981;
+    --cb-danger: #ef4444;
+    --cb-info: #38bdf8;
+    --cb-radius: 10px;
+    --cb-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    background-color: var(--cb-bg);
+    color: var(--cb-text);
+    font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    line-height: 1.55;
+    display: flex;
+    flex-direction: column;
+}
+
+a {
+    color: var(--cb-info);
+    text-decoration: none;
+    transition: color 0.15s ease;
+}
+
+a:hover {
+    color: #7dd3fc;
+}
+
+/* --------------------------------------------------------------------------
+   Header & Navigation Bar
+   -------------------------------------------------------------------------- */
+.cb-header {
+    background-color: rgba(15, 23, 42, 0.95);
+    border-bottom: 1px solid var(--cb-border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(8px);
+}
+
+.cb-nav-container {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0.85rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.cb-brand {
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    color: var(--cb-text);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.cb-brand-accent {
+    color: var(--cb-primary);
+}
+
+.cb-nav-links {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.cb-nav-link {
+    color: var(--cb-text-muted);
+    padding: 0.45rem 0.85rem;
+    border-radius: 6px;
+    font-weight: 500;
+    font-size: 0.95rem;
+    transition: all 0.15s ease;
+}
+
+.cb-nav-link:hover,
+.cb-nav-link-active {
+    color: var(--cb-text);
+    background-color: var(--cb-bg-elevated);
+}
+
+.cb-auth-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+}
+
+.cb-inline-form {
+    display: inline-block;
+    margin: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Role & Status Badges
+   -------------------------------------------------------------------------- */
+.cb-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.22rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+
+.cb-role-guest {
+    background-color: #334155;
+    color: #cbd5e1;
+}
+
+.cb-role-member {
+    background-color: rgba(56, 189, 248, 0.18);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.35);
+}
+
+.cb-role-admin {
+    background-color: rgba(245, 158, 11, 0.2);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.45);
+}
+
+.cb-status-planned {
+    background-color: rgba(148, 163, 184, 0.2);
+    color: #cbd5e1;
+}
+
+.cb-status-active {
+    background-color: rgba(56, 189, 248, 0.2);
+    color: #38bdf8;
+}
+
+.cb-status-completed {
+    background-color: rgba(16, 185, 129, 0.2);
+    color: #34d399;
+}
+
+.cb-status-abandoned {
+    background-color: rgba(239, 68, 68, 0.2);
+    color: #f87171;
+}
+
+.cb-badge-type {
+    background-color: rgba(139, 92, 246, 0.2);
+    color: #c4b5fd;
+}
+
+/* --------------------------------------------------------------------------
+   Main Container & Footer
+   -------------------------------------------------------------------------- */
+.cb-main {
+    flex: 1;
+    max-width: 1280px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 1.75rem 1.5rem 3rem;
+}
+
+.cb-footer {
+    border-top: 1px solid var(--cb-border);
+    background-color: #0b1120;
+    padding: 1.25rem 1.5rem;
+    color: var(--cb-text-muted);
+    font-size: 0.88rem;
+}
+
+.cb-footer-inner {
+    max-width: 1280px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+/* --------------------------------------------------------------------------
+   Alerts & Notifications
+   -------------------------------------------------------------------------- */
+.cb-alert {
+    padding: 0.9rem 1.2rem;
+    border-radius: var(--cb-radius);
+    margin-bottom: 1.25rem;
+    font-weight: 500;
+    border: 1px solid transparent;
+}
+
+.cb-alert-success {
+    background-color: rgba(16, 185, 129, 0.14);
+    border-color: rgba(16, 185, 129, 0.4);
+    color: #6ee7b7;
+}
+
+.cb-alert-error {
+    background-color: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.45);
+    color: #fca5a5;
+}
+
+.cb-alert-info {
+    background-color: rgba(56, 189, 248, 0.12);
+    border-color: rgba(56, 189, 248, 0.35);
+    color: #bae6fd;
+}
+
+/* --------------------------------------------------------------------------
+   Hero Banner & Section Headers
+   -------------------------------------------------------------------------- */
+.cb-hero {
+    background: linear-gradient(135deg, #1e1b4b 0%, #1e293b 60%, #0f172a 100%);
+    border: 1px solid var(--cb-border);
+    border-radius: 14px;
+    padding: 2.25rem 2rem;
+    margin-bottom: 2rem;
+    box-shadow: var(--cb-shadow);
+}
+
+.cb-hero-title {
+    margin: 0 0 0.65rem;
+    font-size: 2rem;
+    font-weight: 800;
+}
+
+.cb-hero-subtitle {
+    margin: 0 0 1.4rem;
+    color: var(--cb-text-muted);
+    max-width: 780px;
+    font-size: 1.05rem;
+}
+
+.cb-hero-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.cb-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin: 1.75rem 0 1rem;
+}
+
+.cb-section-title {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 700;
+}
+
+/* --------------------------------------------------------------------------
+   Breadcrumbs & Hierarchy Navigation (Project -> Part -> Task)
+   -------------------------------------------------------------------------- */
+.cb-breadcrumb {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background-color: var(--cb-bg-elevated);
+    border: 1px solid var(--cb-border);
+    border-radius: var(--cb-radius);
+    margin-bottom: 1.25rem;
+    font-size: 0.92rem;
+}
+
+.cb-breadcrumb-sep {
+    color: var(--cb-text-muted);
+}
+
+.cb-breadcrumb-current {
+    color: var(--cb-text);
+    font-weight: 600;
+}
+
+/* --------------------------------------------------------------------------
+   Stat Cards & Multi-Entity Dashboard Grid
+   -------------------------------------------------------------------------- */
+.cb-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.75rem;
+}
+
+.cb-stat-card {
+    background-color: var(--cb-bg-card);
+    border: 1px solid var(--cb-border);
+    border-radius: var(--cb-radius);
+    padding: 1.15rem 1.25rem;
+}
+
+.cb-stat-label {
+    font-size: 0.82rem;
+    color: var(--cb-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.cb-stat-value {
+    font-size: 1.65rem;
+    font-weight: 800;
+    margin-top: 0.25rem;
+    color: var(--cb-text);
+}
+
+.cb-stat-sub {
+    font-size: 0.8rem;
+    color: var(--cb-text-muted);
+    margin-top: 0.2rem;
+}
+
+/* --------------------------------------------------------------------------
+   Cards & Grid Layout (Projects, Parts, Tools, Materials)
+   -------------------------------------------------------------------------- */
+.cb-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 1.75rem;
+}
+
+.cb-card {
+    background-color: var(--cb-bg-card);
+    border: 1px solid var(--cb-border);
+    border-radius: var(--cb-radius);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.cb-card:hover {
+    transform: translateY(-2px);
+    border-color: #475569;
+}
+
+.cb-card-img {
+    width: 100%;
+    height: 185px;
+    object-fit: cover;
+    background-color: #0b1120;
+    border-bottom: 1px solid var(--cb-border);
+}
+
+.cb-card-placeholder {
+    width: 100%;
+    height: 185px;
+    background: linear-gradient(135deg, #1e1b4b, #312e81);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #a5b4fc;
+    font-weight: 700;
+    letter-spacing: 1px;
+    border-bottom: 1px solid var(--cb-border);
+}
+
+.cb-card-body {
+    padding: 1.15rem;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+.cb-card-title {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--cb-text);
+}
+
+.cb-card-meta {
+    font-size: 0.86rem;
+    color: var(--cb-text-muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+}
+
+.cb-card-desc {
+    font-size: 0.92rem;
+    color: #cbd5e1;
+    margin: 0.25rem 0;
+}
+
+.cb-card-footer {
+    padding: 0.85rem 1.15rem;
+    background-color: rgba(15, 23, 42, 0.55);
+    border-top: 1px solid var(--cb-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+/* --------------------------------------------------------------------------
+   Progress Bars
+   -------------------------------------------------------------------------- */
+.cb-progress-wrap {
+    margin-top: 0.35rem;
+}
+
+.cb-progress-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: var(--cb-text-muted);
+    margin-bottom: 0.25rem;
+}
+
+.cb-progress-track {
+    width: 100%;
+    height: 8px;
+    background-color: #0f172a;
+    border-radius: 999px;
+    overflow: hidden;
+    border: 1px solid var(--cb-border);
+}
+
+.cb-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--cb-primary), var(--cb-info));
+    border-radius: 999px;
+    transition: width 0.3s ease;
+}
+
+/* --------------------------------------------------------------------------
+   Panels, Forms, Inputs, & Buttons
+   -------------------------------------------------------------------------- */
+.cb-panel {
+    background-color: var(--cb-bg-card);
+    border: 1px solid var(--cb-border);
+    border-radius: var(--cb-radius);
+    padding: 1.35rem;
+    margin-bottom: 1.5rem;
+}
+
+.cb-panel-title {
+    margin: 0 0 1rem;
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+
+.cb-two-col {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 1.25rem;
+}
+
+.cb-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 0.9rem;
+}
+
+.cb-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin-bottom: 0.85rem;
+}
+
+.cb-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #cbd5e1;
+}
+
+.cb-input,
+.cb-select,
+.cb-textarea {
+    background-color: var(--cb-bg-input);
+    border: 1px solid var(--cb-border);
+    border-radius: 6px;
+    padding: 0.55rem 0.75rem;
+    color: var(--cb-text);
+    font-size: 0.93rem;
+    font-family: inherit;
+    width: 100%;
+}
+
+.cb-input:focus,
+.cb-select:focus,
+.cb-textarea:focus {
+    outline: none;
+    border-color: var(--cb-primary);
+}
+
+.cb-textarea {
+    min-height: 85px;
+    resize: vertical;
+}
+
+.cb-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.52rem 1rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: inherit;
+}
+
+.cb-btn-primary {
+    background-color: var(--cb-primary);
+    color: #ffffff;
+}
+
+.cb-btn-primary:hover {
+    background-color: var(--cb-primary-hover);
+    color: #ffffff;
+}
+
+.cb-btn-secondary {
+    background-color: #334155;
+    color: var(--cb-text);
+}
+
+.cb-btn-secondary:hover {
+    background-color: #475569;
+    color: var(--cb-text);
+}
+
+.cb-btn-danger {
+    background-color: rgba(239, 68, 68, 0.2);
+    color: #fca5a5;
+    border-color: rgba(239, 68, 68, 0.4);
+}
+
+.cb-btn-danger:hover {
+    background-color: var(--cb-danger);
+    color: #ffffff;
+}
+
+.cb-btn-outline {
+    background-color: transparent;
+    border-color: var(--cb-border);
+    color: var(--cb-text);
+}
+
+.cb-btn-outline:hover {
+    border-color: var(--cb-info);
+    color: var(--cb-info);
+}
+
+.cb-btn-sm {
+    padding: 0.32rem 0.68rem;
+    font-size: 0.8rem;
+}
+
+/* --------------------------------------------------------------------------
+   Filter Bar & Pagination
+   -------------------------------------------------------------------------- */
+.cb-filter-bar {
+    background-color: var(--cb-bg-card);
+    border: 1px solid var(--cb-border);
+    border-radius: var(--cb-radius);
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.85rem;
+}
+
+.cb-filter-item {
+    flex: 1;
+    min-width: 170px;
+}
+
+.cb-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.45rem;
+    margin: 1.5rem 0;
+    flex-wrap: wrap;
+}
+
+.cb-page-link {
+    padding: 0.45rem 0.85rem;
+    border-radius: 6px;
+    background-color: var(--cb-bg-card);
+    border: 1px solid var(--cb-border);
+    color: var(--cb-text);
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.cb-page-link:hover {
+    border-color: var(--cb-primary);
+}
+
+.cb-page-active {
+    background-color: var(--cb-primary);
+    border-color: var(--cb-primary);
+    color: #ffffff;
+}
+
+/* --------------------------------------------------------------------------
+   Data Tables & Task Lists
+   -------------------------------------------------------------------------- */
+.cb-table-wrap {
+    overflow-x: auto;
+}
+
+.cb-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.92rem;
+}
+
+.cb-table th,
+.cb-table td {
+    padding: 0.75rem 0.9rem;
+    text-align: left;
+    border-bottom: 1px solid var(--cb-border);
+}
+
+.cb-table th {
+    color: var(--cb-text-muted);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    background-color: rgba(15, 23, 42, 0.5);
+}
+
+.cb-task-completed {
+    text-decoration: line-through;
+    color: var(--cb-text-muted);
+}
+
+/* --------------------------------------------------------------------------
+   Interactive REST API & HTTP Status Console
+   -------------------------------------------------------------------------- */
+.cb-api-console {
+    background-color: #0b1120;
+    border: 1px solid var(--cb-border);
+    border-radius: var(--cb-radius);
+    padding: 1.25rem;
+    margin-top: 1.5rem;
+}
+
+.cb-status-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    margin: 0.75rem 0 1rem;
+}
+
+.cb-code-output {
+    background-color: #020617;
+    border: 1px solid #1e293b;
+    border-radius: 8px;
+    padding: 1rem;
+    color: #38bdf8;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 0.85rem;
+    max-height: 340px;
+    overflow: auto;
+    white-space: pre-wrap;
+    margin-top: 0.75rem;
+}
+
+.cb-avatar-lg {
+    width: 84px;
+    height: 84px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--cb-primary);
+    background-color: #0b1120;
+}
+
+.cb-avatar-sm {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid var(--cb-primary);
+    background-color: #0b1120;
+    vertical-align: middle;
+}
+
+.cb-thumb-sm {
+    width: 52px;
+    height: 52px;
+    border-radius: 8px;
+    object-fit: cover;
+    border: 1px solid var(--cb-border);
+    background-color: #0b1120;
+    vertical-align: middle;
+}
+
+.cb-inline-thumb {
+    width: 22px;
+    height: 22px;
+    border-radius: 4px;
+    object-fit: cover;
+    border: 1px solid var(--cb-border);
+    vertical-align: middle;
+    margin-right: 0.3rem;
+}
+
+.cb-owner-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.cb-detail-media {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.35rem;
+    flex-wrap: wrap;
+}
+
+.cb-detail-banner-img {
+    width: 190px;
+    height: 140px;
+    border-radius: var(--cb-radius);
+    object-fit: cover;
+    border: 1px solid var(--cb-border);
+    background-color: #0b1120;
+    flex-shrink: 0;
+}
+
+.cb-detail-body {
+    flex: 1;
+    min-width: 240px;
+}
+
+.cb-profile-header {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+}
+
+.cb-auth-card {
+    max-width: 520px;
+    margin: 2rem auto;
+}
+
+.cb-tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.cb-hidden {
+    display: none;
+}
+
+.cb-muted {
+    color: var(--cb-text-muted);
+}
+
+.cb-mt-1 {
+    margin-top: 0.75rem;
+}
+
+.cb-mb-1 {
+    margin-bottom: 0.75rem;
+}

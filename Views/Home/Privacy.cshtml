@@ -1,0 +1,136 @@
+@{
+    ViewData["Title"] = "REST API Specification";
+}
+
+<div class="cb-panel">
+    <h1 class="cb-section-title">Cosplabuilder REST API Reference</h1>
+    <p class="cb-card-desc">
+        Administrator reference for all available REST endpoints across Projects, Parts, Tasks, Dashboard, Images, and Lookups.
+    </p>
+</div>
+
+<div class="cb-panel">
+    <h2 class="cb-panel-title">REST Endpoints</h2>
+    <div class="cb-table-wrap">
+        <table class="cb-table">
+            <thead>
+                <tr>
+                    <th>Resource</th>
+                    <th>HTTP Verb &amp; URL</th>
+                    <th>Description</th>
+                    <th>Status Codes</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Project</strong></td>
+                    <td><code>GET /api/projects</code></td>
+                    <td>Paginated &amp; filterable list of cosplay projects with ETag caching.</td>
+                    <td>200, 304, 400</td>
+                </tr>
+                <tr>
+                    <td><strong>Project</strong></td>
+                    <td><code>GET /api/projects/{projectId}</code></td>
+                    <td>Single project details with references and cover image URL.</td>
+                    <td>200, 304, 400, 401, 403, 404</td>
+                </tr>
+                <tr>
+                    <td><strong>Project</strong></td>
+                    <td><code>POST /api/projects</code></td>
+                    <td>Create a new project (returns Location header).</td>
+                    <td>201, 400, 401, 409, 422</td>
+                </tr>
+                <tr>
+                    <td><strong>Project</strong></td>
+                    <td><code>PUT /api/projects/{projectId}</code></td>
+                    <td>Update an existing project (owner or Admin).</td>
+                    <td>200, 400, 401, 403, 404, 422</td>
+                </tr>
+                <tr>
+                    <td><strong>Project</strong></td>
+                    <td><code>DELETE /api/projects/{projectId}</code></td>
+                    <td>Delete project and cascade child parts/tasks.</td>
+                    <td>204, 400, 401, 403, 404</td>
+                </tr>
+                <tr>
+                    <td><strong>Part</strong></td>
+                    <td><code>GET /api/projects/{projectId}/parts</code> &amp; <code>GET /api/parts</code></td>
+                    <td>List of parts for a specific project (with pagination &amp; type filter).</td>
+                    <td>200, 304, 400, 401, 403, 404</td>
+                </tr>
+                <tr>
+                    <td><strong>Part</strong></td>
+                    <td><code>GET /api/projects/{projectId}/parts/{partId}</code> &amp; <code>GET /api/parts/{partId}</code></td>
+                    <td>Single costume part with linked materials and image URL.</td>
+                    <td>200, 400, 401, 403, 404</td>
+                </tr>
+                <tr>
+                    <td><strong>Part</strong></td>
+                    <td><code>POST /api/projects/{projectId}/parts</code> &amp; <code>POST /api/parts</code></td>
+                    <td>Create a new part inside a project.</td>
+                    <td>201, 400, 401, 403, 404, 422</td>
+                </tr>
+                <tr>
+                    <td><strong>Part</strong></td>
+                    <td><code>PUT /api/projects/{projectId}/parts/{partId}</code> &amp; <code>PUT /api/parts/{partId}</code></td>
+                    <td>Update part progress, price, time, or type.</td>
+                    <td>200, 400, 401, 403, 404, 422</td>
+                </tr>
+                <tr>
+                    <td><strong>Part</strong></td>
+                    <td><code>DELETE /api/projects/{projectId}/parts/{partId}</code> &amp; <code>DELETE /api/parts/{partId}</code></td>
+                    <td>Delete a costume part.</td>
+                    <td>204, 400, 401, 403, 404</td>
+                </tr>
+                <tr>
+                    <td><strong>Task</strong></td>
+                    <td><code>GET /api/projects/{projectId}/parts/{partId}/tasks</code> &amp; <code>GET /api/tasks</code></td>
+                    <td>Hierarchical endpoint returning tasks for a specific part of a specific project.</td>
+                    <td>200, 304, 400, 401, 403, 404</td>
+                </tr>
+                <tr>
+                    <td><strong>Task</strong></td>
+                    <td><code>GET /api/projects/{projectId}/parts/{partId}/tasks/{taskId}</code></td>
+                    <td>Single task within the project part hierarchy.</td>
+                    <td>200, 400, 401, 403, 404</td>
+                </tr>
+                <tr>
+                    <td><strong>Task</strong></td>
+                    <td><code>POST /api/projects/{projectId}/parts/{partId}/tasks</code></td>
+                    <td>Create a build task inside a specific project part.</td>
+                    <td>201, 400, 401, 403, 404, 422</td>
+                </tr>
+                <tr>
+                    <td><strong>Task</strong></td>
+                    <td><code>PUT /api/projects/{projectId}/parts/{partId}/tasks/{taskId}</code></td>
+                    <td>Update task details or completion date.</td>
+                    <td>200, 400, 401, 403, 404, 422</td>
+                </tr>
+                <tr>
+                    <td><strong>Task</strong></td>
+                    <td><code>DELETE /api/projects/{projectId}/parts/{partId}/tasks/{taskId}</code></td>
+                    <td>Delete task from part.</td>
+                    <td>204, 400, 401, 403, 404</td>
+                </tr>
+                <tr>
+                    <td><strong>Dashboard</strong></td>
+                    <td><code>GET /api/dashboard/{userId?}</code></td>
+                    <td>Aggregated workshop summary for a user.</td>
+                    <td>200, 401, 404</td>
+                </tr>
+                <tr>
+                    <td><strong>Images</strong></td>
+                    <td><code>POST /api/images</code></td>
+                    <td>Uploads image file with randomized filename and creates Image DB record.</td>
+                    <td>201, 400, 401, 422</td>
+                </tr>
+                <tr>
+                    <td><strong>Lookups</strong></td>
+                    <td><code>GET /api/lookups</code> &amp; <code>POST /api/lookups/{category}</code></td>
+                    <td>Retrieve or extend lookup values.</td>
+                    <td>200, 201, 400, 401, 403, 409, 422</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>

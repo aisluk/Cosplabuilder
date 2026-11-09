@@ -1,0 +1,86 @@
+@{
+    ViewData["Title"] = "Register Account";
+    string? error = ViewData["Error"] as string;
+    var languages = ViewBag.Languages as List<string> ?? new List<string> { "English", "Lithuanian" };
+    var currencies = ViewBag.Currencies as List<string> ?? new List<string> { "EUR", "USD", "GBP" };
+}
+
+<div class="cb-panel cb-auth-card">
+    <h1 class="cb-panel-title">Create Cosplabuilder Account</h1>
+    <p class="cb-card-desc">
+        Join Cosplabuilder to plan your costumes, track build progress, and organize your workshop inventory.
+    </p>
+
+    @if (!string.IsNullOrWhiteSpace(error))
+    {
+        <div class="cb-alert cb-alert-error">@error</div>
+    }
+
+    <form method="post" action="/register" enctype="multipart/form-data">
+        <div class="cb-form-group">
+            <label class="cb-label" for="username">Username</label>
+            <input class="cb-input" type="text" id="username" name="username" maxlength="32" required />
+        </div>
+
+        <div class="cb-form-group">
+            <label class="cb-label" for="email">Email Address</label>
+            <input class="cb-input" type="email" id="email" name="email" maxlength="255" required />
+        </div>
+
+        <div class="cb-form-grid">
+            <div class="cb-form-group">
+                <label class="cb-label" for="password">Password (min 6 chars)</label>
+                <input class="cb-input" type="password" id="password" name="password" required />
+            </div>
+
+            <div class="cb-form-group">
+                <label class="cb-label" for="confirmPassword">Confirm Password</label>
+                <input class="cb-input" type="password" id="confirmPassword" name="confirmPassword" required />
+            </div>
+        </div>
+
+        <div class="cb-form-grid">
+            <div class="cb-form-group">
+                <label class="cb-label" for="language">Preferred Language</label>
+                <select class="cb-select" id="language" name="language">
+                    @foreach (var lang in languages)
+                    {
+                        <option value="@lang">@lang</option>
+                    }
+                </select>
+            </div>
+
+            <div class="cb-form-group">
+                <label class="cb-label" for="currency">Preferred Currency</label>
+                <select class="cb-select" id="currency" name="currency">
+                    @foreach (var curr in currencies)
+                    {
+                        <option value="@curr">@curr</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        <div class="cb-form-grid">
+            <div class="cb-form-group">
+                <label class="cb-label" for="avatarFile">Upload Avatar File (optional)</label>
+                <input class="cb-input" type="file" id="avatarFile" name="avatarFile" accept=".jpg,.jpeg,.png,.webp,.gif,.svg" />
+            </div>
+
+            <div class="cb-form-group">
+                <label class="cb-label" for="avatarUrl">Or Avatar Image URL / Path (optional)</label>
+                <input class="cb-input" type="text" id="avatarUrl" name="avatarUrl" maxlength="500" placeholder="/uploads/... or https://..." />
+            </div>
+        </div>
+
+        <div class="cb-form-group">
+            <label class="cb-label" for="avatarAlt">Avatar Alt Text (optional)</label>
+            <input class="cb-input" type="text" id="avatarAlt" name="avatarAlt" maxlength="500" placeholder="User profile icon description" />
+        </div>
+
+        <div class="cb-hero-actions cb-mt-1">
+            <button type="submit" class="cb-btn cb-btn-primary">Register &amp; Sign In</button>
+            <a class="cb-btn cb-btn-outline" href="/login">Already have an account?</a>
+        </div>
+    </form>
+</div>

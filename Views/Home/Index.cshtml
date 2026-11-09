@@ -1,0 +1,184 @@
+@model DashboardCompositeViewModel
+@using Cosplabuilder.Helpers
+@{
+    ViewData["Title"] = "Cosplay Planner";
+    bool isAuth = UserAccess.IsAuthenticated(User);
+    bool isAdmin = UserAccess.IsAdmin(User);
+}
+
+<section class="cb-hero">
+    <h1 class="cb-hero-title">Cosplabuilder &mdash; Cosplay Workshop &amp; Build Planner</h1>
+    <p class="cb-hero-subtitle">
+        Organize your costume builds from concept to convention. Break down cosplay projects into individual costume parts,
+        track crafting tasks and hours, and manage your workshop tools and materials in one place.
+    </p>
+    <div class="cb-hero-actions">
+        <a class="cb-btn cb-btn-primary" href="/projects">Browse Projects</a>
+        @if (isAuth)
+        {
+            <a class="cb-btn cb-btn-secondary" href="/dashboard">Open Dashboard</a>
+            <a class="cb-btn cb-btn-outline" href="/tools">Tools Inventory</a>
+            <a class="cb-btn cb-btn-outline" href="/materials">Materials Inventory</a>
+        }
+        else
+        {
+            <a class="cb-btn cb-btn-secondary" href="/login">Sign In</a>
+            <a class="cb-btn cb-btn-outline" href="/register">Create Account</a>
+        }
+    </div>
+</section>
+
+<div class="cb-stats-grid">
+    <div class="cb-stat-card">
+        <div class="cb-stat-label">Visible Projects</div>
+        <div class="cb-stat-value">@Model.TotalProjects</div>
+        <div class="cb-stat-sub">@Model.ActiveProjects active &middot; @Model.CompletedProjects completed</div>
+    </div>
+    <div class="cb-stat-card">
+        <div class="cb-stat-label">Costume Parts</div>
+        <div class="cb-stat-value">@Model.TotalParts</div>
+        <div class="cb-stat-sub">Across visible projects</div>
+    </div>
+    <div class="cb-stat-card">
+        <div class="cb-stat-label">Build Tasks</div>
+        <div class="cb-stat-value">@Model.TotalTasks</div>
+        <div class="cb-stat-sub">@Model.CompletedTasks completed</div>
+    </div>
+</div>
+
+<div class="cb-section-header">
+    <h2 class="cb-section-title">Featured Cosplay Projects</h2>
+    <a class="cb-btn cb-btn-outline cb-btn-sm" href="/projects">View All Projects &rarr;</a>
+</div>
+
+<div class="cb-card-grid">
+    @foreach (var proj in Model.Projects)
+    {
+        string statusBadge = proj.Status switch
+        {
+            "Active" => "cb-badge cb-status-active",
+            "Completed" => "cb-badge cb-status-completed",
+            "Abandoned" => "cb-badge cb-status-abandoned",
+            _ => "cb-badge cb-status-planned"
+        };
+        var firstPart = proj.Parts.FirstOrDefault();
+        string? projImgUrl = ImageNameHasher.ResolveImageUrl(proj.CoverImage?.FilePath);
+        string? ownerImgUrl = ImageNameHasher.ResolveImageUrl(proj.Owner?.AvatarImage?.FilePath);
+
+        <article class="cb-card">
+            @if (!string.IsNullOrEmpty(projImgUrl))
+            {
+                <img class="cb-card-img" src="@projImgUrl" alt="@(proj.CoverImage?.AltText ?? proj.Name)" loading="lazy" />
+            }
+            else
+            {
+                <div class="cb-card-placeholder">@proj.Name</div>
+            }
+
+            <div class="cb-card-body">
+                <div class="cb-card-meta">
+                    <span class="@statusBadge">@proj.Status</span>
+                    <span class="cb-badge @(proj.IsPublic ? "cb-status-completed" : "cb-status-planned")">
+                        @(proj.IsPublic ? "Public" : "Private")
+                    </span>
+                    @if (!string.IsNullOrEmpty(proj.Fandom))
+                    {
+                        <span class="cb-badge cb-badge-type">@proj.Fandom</span>
+                    }
+                    @if (proj.Owner != null)
+                    {
+                        <span class="cb-owner-chip">
+                            @if (!string.IsNullOrEmpty(ownerImgUrl))
+                            {
+                                <img class="cb-avatar-sm" src="@ownerImgUrl" alt="@(proj.Owner.AvatarImage?.AltText ?? proj.Owner.Username)" />
+                            }
+                            <span>@proj.Owner.Username</span>
+                        </span>
+                    }
+                    <span>Parts: @proj.Parts.Count</span>
+                </div>
+                <h3 class="cb-card-title">@proj.Name</h3>
+                <p class="cb-card-desc">@(proj.Description ?? "No description provided.")</p>
+
+                <div class="cb-progress-wrap">
+                    <div class="cb-progress-header">
+                        <span>Build Progress</span>
+                        <span>@proj.Progress%</span>
+                    </div>
+                    <div class="cb-progress-track">
+                        <div class="cb-progress-fill" data-progress="@proj.Progress"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="cb-card-footer">
+                <a class="cb-btn cb-btn-primary cb-btn-sm" href="/projects/@proj.Id/parts">View Parts (@proj.Parts.Count)</a>
+                @if (firstPart != null)
+                {
+                    <a class="cb-btn cb-btn-secondary cb-btn-sm" href="/projects/@proj.Id/parts/@firstPart.Id/tasks">
+                        View Tasks &rarr;
+                    </a>
+                }
+                @if (isAdmin)
+                {
+                    <a class="cb-btn cb-btn-outline cb-btn-sm" href="/api/projects/@proj.Id" target="_blank">REST: GET</a>
+                }
+            </div>
+        </article>
+    }
+</div>
+
+@if (isAdmin)
+{
+    <section class="cb-api-console">
+        <h2 class="cb-panel-title">Admin Feed: Interactive REST API &amp; HTTP Status Code Console</h2>
+        <p class="cb-card-desc">
+            Test REST endpoints and inspect HTTP status codes, headers, and JSON payloads directly from your administrator feed.
+        </p>
+
+        <div class="cb-status-grid">
+            <button type="button" class="cb-btn cb-btn-secondary cb-btn-sm" data-api-method="GET" data-api-preset="/api/projects?page=1&pageSize=4">GET /api/projects (200)</button>
+            <button type="button" class="cb-btn cb-btn-secondary cb-btn-sm" data-api-method="GET" data-api-preset="/api/projects/1/parts">GET /api/projects/1/parts</button>
+            <button type="button" class="cb-btn cb-btn-primary cb-btn-sm" data-api-method="GET" data-api-preset="/api/projects/1/parts/1/tasks">GET /api/projects/1/parts/1/tasks</button>
+            <button type="button" class="cb-btn cb-btn-secondary cb-btn-sm" data-api-method="GET" data-api-preset="/api/dashboard">GET /api/dashboard</button>
+            <button type="button" class="cb-btn cb-btn-secondary cb-btn-sm" data-api-method="GET" data-api-preset="/api/lookups">GET /api/lookups</button>
+            <button type="button" class="cb-btn cb-btn-outline cb-btn-sm" data-api-method="GET" data-api-preset="/api/projects?page=1&pageSize=4" data-api-etag="true">Conditional GET (304)</button>
+        </div>
+
+        <div class="cb-status-grid">
+            <button type="button" class="cb-btn cb-btn-outline cb-btn-sm" data-api-method="GET" data-api-preset="/api/status/201">Test 201 Created</button>
+            <button type="button" class="cb-btn cb-btn-outline cb-btn-sm" data-api-method="GET" data-api-preset="/api/status/204">Test 204 No Content</button>
+            <button type="button" class="cb-btn cb-btn-outline cb-btn-sm" data-api-method="GET" data-api-preset="/api/projects/-5">Test 400 Bad Request</button>
+            <button type="button" class="cb-btn cb-btn-outline cb-btn-sm" data-api-method="GET" data-api-preset="/api/status/401">Test 401 Unauthorized</button>
+            <button type="button" class="cb-btn cb-btn-outline cb-btn-sm" data-api-method="GET" data-api-preset="/api/status/403">Test 403 Forbidden</button>
+            <button type="button" class="cb-btn cb-btn-outline cb-btn-sm" data-api-method="GET" data-api-preset="/api/projects/1/parts/999/tasks">Test 404 Not Found</button>
+            <button type="button" class="cb-btn cb-btn-outline cb-btn-sm" data-api-method="DELETE" data-api-preset="/api/lookups">Test 405 Method Not Allowed</button>
+            <button type="button" class="cb-btn cb-btn-outline cb-btn-sm" data-api-method="GET" data-api-preset="/api/status/408">Test 408 Timeout</button>
+            <button type="button" class="cb-btn cb-btn-outline cb-btn-sm" data-api-method="GET" data-api-preset="/api/status/409">Test 409 Conflict</button>
+            <button type="button" class="cb-btn cb-btn-outline cb-btn-sm" data-api-method="POST" data-api-preset="/api/projects" data-api-body='{"name":"Test","progress":180,"budget":-20}'>Test 422 Unprocessable</button>
+        </div>
+
+        <div class="cb-form-grid">
+            <div class="cb-form-group">
+                <label class="cb-label" for="cb-api-method">HTTP Method</label>
+                <select id="cb-api-method" class="cb-select">
+                    <option value="GET">GET</option>
+                    <option value="POST">POST</option>
+                    <option value="PUT">PUT</option>
+                    <option value="DELETE">DELETE</option>
+                </select>
+            </div>
+            <div class="cb-form-group">
+                <label class="cb-label" for="cb-api-url">REST Endpoint URL</label>
+                <input id="cb-api-url" class="cb-input" type="text" value="/api/projects/1/parts/1/tasks" />
+            </div>
+            <div class="cb-form-group">
+                <label class="cb-label" for="cb-api-body">JSON Request Body (for POST / PUT)</label>
+                <input id="cb-api-body" class="cb-input" type="text" placeholder='{"name":"New Item","progress":25,"isPublic":true}' />
+            </div>
+        </div>
+        <button type="button" id="cb-api-send" class="cb-btn cb-btn-primary">Execute REST Request</button>
+
+        <pre id="cb-api-output" class="cb-code-output">Select a preset or click "Execute REST Request" to inspect the response.</pre>
+    </section>
+}

@@ -1,0 +1,252 @@
+@model DashboardCompositeViewModel
+@using Cosplabuilder.Helpers
+@{
+    ViewData["Title"] = "Workshop Dashboard & Profile";
+    bool isAuth = UserAccess.IsAuthenticated(User);
+    bool isAdmin = UserAccess.IsAdmin(User);
+    string currency = Model.ProfileUser.Currency;
+    string? profileAvatarUrl = ImageNameHasher.ResolveImageUrl(Model.ProfileUser.AvatarImage?.FilePath);
+}
+
+<div class="cb-panel">
+    <div class="cb-profile-header">
+        @if (!string.IsNullOrEmpty(profileAvatarUrl))
+        {
+            <img class="cb-avatar-lg" src="@profileAvatarUrl" alt="@(Model.ProfileUser.AvatarImage?.AltText ?? $"{Model.ProfileUser.Username} avatar")" />
+        }
+        else
+        {
+            <div class="cb-badge cb-role-member">@Model.ProfileUser.Username</div>
+        }
+
+        <div>
+            <h1 class="cb-section-title">@Model.ProfileUser.Username &mdash; Workshop Dashboard</h1>
+            <p class="cb-muted">
+                Email: @Model.ProfileUser.Email &middot;
+                Language: <strong>@Model.ProfileUser.Language</strong> &middot;
+                Currency: <strong>@currency</strong>
+                @if (isAdmin)
+                {
+                    <span>&middot; <a href="/api/dashboard" target="_blank"><code>REST: GET /api/dashboard</code></a></span>
+                }
+            </p>
+        </div>
+    </div>
+</div>
+
+<div class="cb-stats-grid">
+    <div class="cb-stat-card">
+        <div class="cb-stat-label">Total Projects</div>
+        <div class="cb-stat-value">@Model.TotalProjects</div>
+        <div class="cb-stat-sub">Avg Progress: @Model.AverageProgress%</div>
+    </div>
+    <div class="cb-stat-card">
+        <div class="cb-stat-label">Parts &amp; Tasks</div>
+        <div class="cb-stat-value">@Model.TotalParts / @Model.TotalTasks</div>
+        <div class="cb-stat-sub">@Model.CompletedTasks tasks completed</div>
+    </div>
+    <div class="cb-stat-card">
+        <div class="cb-stat-label">Planned Budgets</div>
+        <div class="cb-stat-value">@Model.TotalPlannedBudget.ToString("0.00") @currency</div>
+        <div class="cb-stat-sub">Parts Spend: @Model.TotalPartsCost.ToString("0.00") @currency</div>
+    </div>
+    <div class="cb-stat-card">
+        <div class="cb-stat-label">Tools &amp; Materials</div>
+        <div class="cb-stat-value">@((Model.TotalToolsCost + Model.TotalMaterialsCost).ToString("0.00")) @currency</div>
+        <div class="cb-stat-sub">@Model.Tools.Count tools &middot; @Model.Materials.Count materials</div>
+    </div>
+    <div class="cb-stat-card">
+        <div class="cb-stat-label">Total Crafting Time</div>
+        <div class="cb-stat-value">@Model.TotalHoursLogged.ToString("0.0") h</div>
+        <div class="cb-stat-sub">Logged across parts &amp; tasks</div>
+    </div>
+</div>
+
+<div class="cb-two-col">
+    <section class="cb-panel">
+        <h2 class="cb-panel-title">Projects Overview</h2>
+        <div class="cb-table-wrap">
+            <table class="cb-table">
+                <thead>
+                    <tr>
+                        <th>Project</th>
+                        <th>Visibility</th>
+                        <th>Status</th>
+                        <th>Parts</th>
+                        <th>Progress</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var proj in Model.Projects)
+                    {
+                        var firstPart = proj.Parts.FirstOrDefault();
+                        string? pImg = ImageNameHasher.ResolveImageUrl(proj.CoverImage?.FilePath);
+                        <tr>
+                            <td>
+                                <div class="cb-owner-chip">
+                                    @if (!string.IsNullOrEmpty(pImg))
+                                    {
+                                        <img class="cb-thumb-sm" src="@pImg" alt="@(proj.CoverImage?.AltText ?? proj.Name)" />
+                                    }
+                                    <strong>@proj.Name</strong>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="cb-badge @(proj.IsPublic ? "cb-status-completed" : "cb-status-planned")">
+                                    @(proj.IsPublic ? "Public" : "Private")
+                                </span>
+                            </td>
+                            <td><span class="cb-badge cb-status-active">@proj.Status</span></td>
+                            <td>@proj.Parts.Count</td>
+                            <td>@proj.Progress%</td>
+                            <td>
+                                <a class="cb-btn cb-btn-outline cb-btn-sm" href="/projects/@proj.Id/parts">Parts</a>
+                                @if (firstPart != null)
+                                {
+                                    <a class="cb-btn cb-btn-primary cb-btn-sm" href="/projects/@proj.Id/parts/@firstPart.Id/tasks">Tasks</a>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="cb-panel">
+        <h2 class="cb-panel-title">Build Tasks Checklist</h2>
+        <div class="cb-table-wrap">
+            <table class="cb-table">
+                <thead>
+                    <tr>
+                        <th>Task</th>
+                        <th>Type</th>
+                        <th>Hours</th>
+                        <th>State</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var t in Model.Tasks.Take(8))
+                    {
+                        <tr>
+                            <td class="@(t.IsCompleted ? "cb-task-completed" : "")">@t.Name</td>
+                            <td><span class="cb-badge cb-badge-type">@t.Type</span></td>
+                            <td>@t.Time.ToString("0.0") h</td>
+                            <td>@(t.IsCompleted ? $"Done ({t.CompletionDate:yyyy-MM-dd})" : "In Progress")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+@if (isAuth)
+{
+    <section class="cb-panel">
+        <h2 class="cb-panel-title">Profile Settings &amp; Avatar</h2>
+        <form method="post" action="/profile/preferences" enctype="multipart/form-data">
+            <div class="cb-form-grid">
+                <div class="cb-form-group">
+                    <label class="cb-label" for="pref-lang">Language</label>
+                    <select class="cb-select" id="pref-lang" name="language">
+                        @foreach (var lang in Model.Languages)
+                        {
+                            <option value="@lang" selected="@(lang == Model.ProfileUser.Language)">@lang</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="cb-form-group">
+                    <label class="cb-label" for="pref-curr">Currency</label>
+                    <select class="cb-select" id="pref-curr" name="currency">
+                        @foreach (var curr in Model.Currencies)
+                        {
+                            <option value="@curr" selected="@(curr == Model.ProfileUser.Currency)">@curr</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="cb-form-group">
+                    <label class="cb-label" for="pref-pass">New Password (optional)</label>
+                    <input class="cb-input" type="password" id="pref-pass" name="newPassword" placeholder="Leave blank to keep current" />
+                </div>
+
+                <div class="cb-form-group">
+                    <label class="cb-label" for="pref-avatar">Upload New Avatar Image</label>
+                    <input class="cb-input" type="file" id="pref-avatar" name="avatarFile" accept=".jpg,.jpeg,.png,.webp,.gif,.svg" />
+                </div>
+
+                <div class="cb-form-group">
+                    <label class="cb-label" for="pref-avatar-url">Or Avatar Image URL / Path</label>
+                    <input class="cb-input" type="text" id="pref-avatar-url" name="avatarUrl" value="@Model.ProfileUser.AvatarImage?.FilePath" maxlength="500" placeholder="/uploads/... or https://..." />
+                </div>
+
+                <div class="cb-form-group">
+                    <label class="cb-label" for="pref-avatar-alt">Avatar Alt Text</label>
+                    <input class="cb-input" type="text" id="pref-avatar-alt" name="avatarAlt" value="@Model.ProfileUser.AvatarImage?.AltText" maxlength="500" placeholder="User avatar description" />
+                </div>
+            </div>
+            <button type="submit" class="cb-btn cb-btn-primary">Save Profile Preferences</button>
+        </form>
+    </section>
+}
+
+@if (isAdmin && Model.AllUsers.Count > 0)
+{
+    <section class="cb-panel">
+        <h2 class="cb-panel-title">User Role Management</h2>
+        <div class="cb-table-wrap">
+            <table class="cb-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Language / Currency</th>
+                        <th>Role</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var u in Model.AllUsers)
+                    {
+                        string? uAvatarUrl = ImageNameHasher.ResolveImageUrl(u.AvatarImage?.FilePath);
+                        <tr>
+                            <td>#@u.Id</td>
+                            <td>
+                                <div class="cb-owner-chip">
+                                    @if (!string.IsNullOrEmpty(uAvatarUrl))
+                                    {
+                                        <img class="cb-avatar-sm" src="@uAvatarUrl" alt="@(u.AvatarImage?.AltText ?? u.Username)" />
+                                    }
+                                    <strong>@u.Username</strong>
+                                </div>
+                            </td>
+                            <td>@u.Email</td>
+                            <td>@u.Language / @u.Currency</td>
+                            <td>
+                                <span class="cb-badge @(u.Type == 1 ? "cb-role-admin" : "cb-role-member")">@u.RoleName</span>
+                            </td>
+                            <td>
+                                @if (u.Type == 0)
+                                {
+                                    <form class="cb-inline-form" method="post" action="/profile/users/@u.Id/promote">
+                                        <button type="submit" class="cb-btn cb-btn-secondary cb-btn-sm">
+                                            Promote to Admin
+                                        </button>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <span class="cb-muted">Protected Admin</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+}

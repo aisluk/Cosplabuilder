@@ -1,0 +1,6 @@
+$kind: http-request
+name: https://postman-echo.com/get
+description: ""
+url: https://postman-echo.com/get
+method: GET
+order: 1000

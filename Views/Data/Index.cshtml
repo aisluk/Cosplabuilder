@@ -1,0 +1,1284 @@
+@model ExplorerViewModel
+@using Cosplabuilder.Helpers
+@{
+    bool isAuth = UserAccess.IsAuthenticated(User);
+    bool isAdmin = UserAccess.IsAdmin(User);
+    ViewData["Title"] = Model.ActiveView switch
+    {
+        "ProjectDetail" => $"{Model.CurrentProject?.Name} — Costume Parts",
+        "PartTasks" => $"{Model.CurrentPart?.Name} — Build Tasks",
+        "Tools" => "Workshop Tools Inventory",
+        "Materials" => "Cosplay Materials Inventory",
+        _ => "Cosplay Projects"
+    };
+}
+
+@if (Model.ActiveView == "Projects")
+{
+    <div class="cb-breadcrumb">
+        <a href="/">Home</a>
+        <span class="cb-breadcrumb-sep">&rsaquo;</span>
+        <span class="cb-breadcrumb-current">Projects</span>
+    </div>
+
+    <div class="cb-section-header">
+        <h1 class="cb-section-title">Cosplay Projects (@Model.TotalItems)</h1>
+        @if (isAuth)
+        {
+            <button type="button" class="cb-btn cb-btn-primary" data-toggle-target="create-project-panel">+ New Cosplay Project</button>
+        }
+        else
+        {
+            <a class="cb-btn cb-btn-outline cb-btn-sm" href="/login">Sign in to Create Projects</a>
+        }
+    </div>
+
+    @if (isAuth)
+    {
+        <section id="create-project-panel" class="cb-panel cb-hidden">
+            <h2 class="cb-panel-title">Create New Cosplay Project</h2>
+            <form method="post" action="/projects/form" enctype="multipart/form-data">
+                <div class="cb-form-grid">
+                    <div class="cb-form-group">
+                        <label class="cb-label">Project Name *</label>
+                        <input class="cb-input" type="text" name="name" maxlength="127" required />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Fandom / Universe</label>
+                        <input class="cb-input" type="text" name="fandom" maxlength="255" placeholder="e.g. Elden Ring, Witcher" />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Character Name</label>
+                        <input class="cb-input" type="text" name="character" maxlength="255" />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Status</label>
+                        <select class="cb-select" name="status">
+                            @foreach (var s in Model.ProjectStatuses)
+                            {
+                                <option value="@s">@s</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Visibility</label>
+                        <select class="cb-select" name="isPublic">
+                            <option value="true" selected>Public</option>
+                            <option value="false">Private</option>
+                        </select>
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Progress (0–100%)</label>
+                        <input class="cb-input" type="number" name="progress" min="0" max="100" value="0" />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Budget</label>
+                        <input class="cb-input" type="number" step="0.01" min="0" name="budget" placeholder="250.00" />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Upload Project Icon / Cover Photo</label>
+                        <input class="cb-input" type="file" name="imageFile" accept=".jpg,.jpeg,.png,.webp,.gif,.svg" />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Or Project Image URL / Path</label>
+                        <input class="cb-input" type="text" name="imageUrl" maxlength="500" placeholder="/uploads/... or https://..." />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Image Alt Text</label>
+                        <input class="cb-input" type="text" name="imageAlt" maxlength="500" placeholder="Project cover description" />
+                    </div>
+                </div>
+                <div class="cb-form-group">
+                    <label class="cb-label">Project Description</label>
+                    <textarea class="cb-textarea" name="description" placeholder="Build notes, fabric requirements, convention deadlines..."></textarea>
+                </div>
+                <button type="submit" class="cb-btn cb-btn-primary">Create Project</button>
+            </form>
+        </section>
+    }
+
+    <form class="cb-filter-bar" method="get" action="/projects">
+        <div class="cb-filter-item">
+            <label class="cb-label">Search Name / Fandom / Character</label>
+            <input class="cb-input" type="text" name="search" value="@Model.SearchQuery" placeholder="Search projects..." />
+        </div>
+        <div class="cb-filter-item">
+            <label class="cb-label">Filter by Status</label>
+            <select class="cb-select" name="status">
+                <option value="">All Statuses</option>
+                @foreach (var s in Model.ProjectStatuses)
+                {
+                    <option value="@s" selected="@(s == Model.FilterStatus)">@s</option>
+                }
+            </select>
+        </div>
+        <div class="cb-filter-item">
+            <label class="cb-label">Sort By</label>
+            <select class="cb-select" name="sortBy">
+                <option value="">Newest First</option>
+                <option value="progress_desc" selected="@(Model.SortBy == "progress_desc")">Highest Progress</option>
+                <option value="budget_desc" selected="@(Model.SortBy == "budget_desc")">Highest Budget</option>
+                <option value="name_asc" selected="@(Model.SortBy == "name_asc")">Name (A–Z)</option>
+            </select>
+        </div>
+        <div class="cb-filter-item">
+            <label class="cb-label">Page Size</label>
+            <select class="cb-select" name="pageSize">
+                <option value="3" selected="@(Model.PageSize == 3)">3 per page</option>
+                <option value="6" selected="@(Model.PageSize == 6)">6 per page</option>
+                <option value="12" selected="@(Model.PageSize == 12)">12 per page</option>
+            </select>
+        </div>
+        <div>
+            <button type="submit" class="cb-btn cb-btn-primary">Apply Filters</button>
+            <a class="cb-btn cb-btn-secondary" href="/projects">Reset</a>
+        </div>
+    </form>
+
+    <div class="cb-card-grid">
+        @foreach (var proj in Model.Projects)
+        {
+            bool canManage = UserAccess.CanManageResource(User, proj.UserId);
+            var firstPart = proj.Parts.FirstOrDefault();
+            string? projImgUrl = ImageNameHasher.ResolveImageUrl(proj.CoverImage?.FilePath);
+            string? ownerImgUrl = ImageNameHasher.ResolveImageUrl(proj.Owner?.AvatarImage?.FilePath);
+
+            <article class="cb-card">
+                @if (!string.IsNullOrEmpty(projImgUrl))
+                {
+                    <img class="cb-card-img" src="@projImgUrl" alt="@(proj.CoverImage?.AltText ?? proj.Name)" loading="lazy" />
+                }
+                else
+                {
+                    <div class="cb-card-placeholder">@proj.Name</div>
+                }
+
+                <div class="cb-card-body">
+                    <div class="cb-card-meta">
+                        <span class="cb-badge cb-status-active">@proj.Status</span>
+                        <span class="cb-badge @(proj.IsPublic ? "cb-status-completed" : "cb-status-planned")">
+                            @(proj.IsPublic ? "Public" : "Private")
+                        </span>
+                        @if (!string.IsNullOrEmpty(proj.Fandom))
+                        {
+                            <span class="cb-badge cb-badge-type">@proj.Fandom</span>
+                        }
+                        @if (proj.Owner != null)
+                        {
+                            <span class="cb-owner-chip">
+                                @if (!string.IsNullOrEmpty(ownerImgUrl))
+                                {
+                                    <img class="cb-avatar-sm" src="@ownerImgUrl" alt="@(proj.Owner.AvatarImage?.AltText ?? proj.Owner.Username)" />
+                                }
+                                <span>@proj.Owner.Username</span>
+                            </span>
+                        }
+                        @if (proj.Budget.HasValue)
+                        {
+                            <span>Budget: @proj.Budget.Value.ToString("0.00")</span>
+                        }
+                    </div>
+                    <h2 class="cb-card-title">@proj.Name</h2>
+                    <p class="cb-card-desc">@(proj.Description ?? "No description.")</p>
+
+                    <div class="cb-progress-wrap">
+                        <div class="cb-progress-header">
+                            <span>Progress (@proj.Parts.Count parts)</span>
+                            <span>@proj.Progress%</span>
+                        </div>
+                        <div class="cb-progress-track">
+                            <div class="cb-progress-fill" data-progress="@proj.Progress"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="cb-card-footer">
+                    <a class="cb-btn cb-btn-primary cb-btn-sm" href="/projects/@proj.Id/parts">
+                        Open Parts (@proj.Parts.Count)
+                    </a>
+                    @if (firstPart != null)
+                    {
+                        <a class="cb-btn cb-btn-secondary cb-btn-sm" href="/projects/@proj.Id/parts/@firstPart.Id/tasks">
+                            Tasks &rarr;
+                        </a>
+                    }
+                    @if (isAdmin)
+                    {
+                        <a class="cb-btn cb-btn-outline cb-btn-sm" href="/api/projects/@proj.Id" target="_blank">REST: GET</a>
+                    }
+                    @if (canManage)
+                    {
+                        <button type="button" class="cb-btn cb-btn-danger cb-btn-sm" data-rest-delete="/api/projects/@proj.Id">
+                            Delete
+                        </button>
+                    }
+                </div>
+            </article>
+        }
+    </div>
+
+    <div class="cb-pagination">
+        @for (int p = 1; p <= Model.TotalPages; p++)
+        {
+            <a class="cb-page-link @(p == Model.CurrentPage ? "cb-page-active" : "")"
+               href="/projects?page=@p&pageSize=@Model.PageSize&search=@Model.SearchQuery&status=@Model.FilterStatus&sortBy=@Model.SortBy">
+                Page @p
+            </a>
+        }
+    </div>
+}
+else if (Model.ActiveView == "ProjectDetail" && Model.CurrentProject != null)
+{
+    var proj = Model.CurrentProject;
+    bool canManage = UserAccess.CanManageResource(User, proj.UserId);
+    string? projCoverUrl = ImageNameHasher.ResolveImageUrl(proj.CoverImage?.FilePath);
+    string? ownerAvatarUrl = ImageNameHasher.ResolveImageUrl(proj.Owner?.AvatarImage?.FilePath);
+
+    <div class="cb-breadcrumb">
+        <a href="/">Home</a>
+        <span class="cb-breadcrumb-sep">&rsaquo;</span>
+        <a href="/projects">Projects</a>
+        <span class="cb-breadcrumb-sep">&rsaquo;</span>
+        <span class="cb-breadcrumb-current">@proj.Name &rarr; Parts</span>
+    </div>
+
+    <div class="cb-panel">
+        <div class="cb-detail-media">
+            @if (!string.IsNullOrEmpty(projCoverUrl))
+            {
+                <img class="cb-detail-banner-img" src="@projCoverUrl" alt="@(proj.CoverImage?.AltText ?? proj.Name)" />
+            }
+            <div class="cb-detail-body">
+                <div class="cb-section-header">
+                    <div>
+                        <span class="cb-badge cb-status-active">@proj.Status</span>
+                        <span class="cb-badge @(proj.IsPublic ? "cb-status-completed" : "cb-status-planned")">
+                            @(proj.IsPublic ? "Public" : "Private")
+                        </span>
+                        <span class="cb-badge cb-badge-type">@(proj.Fandom ?? "Cosplay")</span>
+                        <h1 class="cb-section-title cb-mt-1">@proj.Name (@(proj.Character ?? "Character"))</h1>
+                    </div>
+                    <div class="cb-hero-actions">
+                        @if (isAdmin)
+                        {
+                            <a class="cb-btn cb-btn-outline cb-btn-sm" href="/api/projects/@proj.Id/parts" target="_blank">REST: GET /api/projects/@proj.Id/parts</a>
+                        }
+                        @if (canManage)
+                        {
+                            <button type="button" class="cb-btn cb-btn-secondary cb-btn-sm" data-toggle-target="edit-project-panel">Edit Project</button>
+                            <button type="button" class="cb-btn cb-btn-primary cb-btn-sm" data-toggle-target="add-part-panel">+ Add Costume Part</button>
+                        }
+                    </div>
+                </div>
+                <p class="cb-card-desc">@proj.Description</p>
+                <div class="cb-card-meta">
+                    <span>Created: @proj.CreationDate.ToString("yyyy-MM-dd")</span>
+                    <span>Budget: @(proj.Budget?.ToString("0.00") ?? "0.00")</span>
+                    <span>Progress: @proj.Progress%</span>
+                    <span class="cb-owner-chip">
+                        <span>Owner:</span>
+                        @if (!string.IsNullOrEmpty(ownerAvatarUrl))
+                        {
+                            <img class="cb-avatar-sm" src="@ownerAvatarUrl" alt="@(proj.Owner?.AvatarImage?.AltText ?? proj.Owner?.Username)" />
+                        }
+                        <strong>@(proj.Owner?.Username ?? $"User #{proj.UserId}")</strong>
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (canManage)
+    {
+        <section id="edit-project-panel" class="cb-panel cb-hidden">
+            <h2 class="cb-panel-title">Edit Project &amp; Cover Icon</h2>
+            <form method="post" action="/projects/form" enctype="multipart/form-data">
+                <input type="hidden" name="id" value="@proj.Id" />
+                <div class="cb-form-grid">
+                    <div class="cb-form-group">
+                        <label class="cb-label">Name</label>
+                        <input class="cb-input" type="text" name="name" value="@proj.Name" required />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Fandom</label>
+                        <input class="cb-input" type="text" name="fandom" value="@proj.Fandom" />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Character</label>
+                        <input class="cb-input" type="text" name="character" value="@proj.Character" />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Status</label>
+                        <select class="cb-select" name="status">
+                            @foreach (var s in Model.ProjectStatuses)
+                            {
+                                <option value="@s" selected="@(s == proj.Status)">@s</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Visibility</label>
+                        <select class="cb-select" name="isPublic">
+                            <option value="true" selected="@proj.IsPublic">Public</option>
+                            <option value="false" selected="@(!proj.IsPublic)">Private</option>
+                        </select>
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Progress (%)</label>
+                        <input class="cb-input" type="number" name="progress" min="0" max="100" value="@proj.Progress" />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Budget</label>
+                        <input class="cb-input" type="number" step="0.01" name="budget" value="@proj.Budget" />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Upload New Project Icon / Cover</label>
+                        <input class="cb-input" type="file" name="imageFile" accept=".jpg,.jpeg,.png,.webp,.gif,.svg" />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Or Project Image URL / Path</label>
+                        <input class="cb-input" type="text" name="imageUrl" value="@proj.CoverImage?.FilePath" maxlength="500" placeholder="/uploads/... or https://..." />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Project Image Alt Text</label>
+                        <input class="cb-input" type="text" name="imageAlt" value="@proj.CoverImage?.AltText" maxlength="500" />
+                    </div>
+                </div>
+                <div class="cb-form-group">
+                    <label class="cb-label">Description</label>
+                    <textarea class="cb-textarea" name="description">@proj.Description</textarea>
+                </div>
+                <button type="submit" class="cb-btn cb-btn-primary">Update Project</button>
+            </form>
+        </section>
+
+        <section id="add-part-panel" class="cb-panel cb-hidden">
+            <h2 class="cb-panel-title">Add New Costume Part to '@proj.Name'</h2>
+            <form method="post" action="/projects/@proj.Id/parts/form" enctype="multipart/form-data">
+                <div class="cb-form-grid">
+                    <div class="cb-form-group">
+                        <label class="cb-label">Part Name *</label>
+                        <input class="cb-input" type="text" name="name" maxlength="127" required />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Part Type</label>
+                        <select class="cb-select" name="type">
+                            @foreach (var pt in Model.PartTypes)
+                            {
+                                <option value="@pt">@pt</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Estimated Cost / Price</label>
+                        <input class="cb-input" type="number" step="0.01" min="0" name="price" value="0.00" />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Crafting Hours</label>
+                        <input class="cb-input" type="number" step="0.5" min="0" name="time" value="0.0" />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Progress (0–100%)</label>
+                        <input class="cb-input" type="number" min="0" max="100" name="progress" value="0" />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Link Workshop Material (optional)</label>
+                        <select class="cb-select" name="linkedMaterialId">
+                            <option value="">-- None --</option>
+                            @foreach (var m in Model.Materials)
+                            {
+                                <option value="@m.Id">@m.Name (@m.MaterialType)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Upload Part Photo</label>
+                        <input class="cb-input" type="file" name="imageFile" accept=".jpg,.jpeg,.png,.webp,.gif,.svg" />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Or Part Image URL / Path</label>
+                        <input class="cb-input" type="text" name="imageUrl" maxlength="500" placeholder="/uploads/... or https://..." />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Part Image Alt Text</label>
+                        <input class="cb-input" type="text" name="imageAlt" maxlength="500" placeholder="Part photo description" />
+                    </div>
+                </div>
+                <div class="cb-form-group">
+                    <label class="cb-label">Fabrication Instructions / Notes</label>
+                    <textarea class="cb-textarea" name="description" placeholder="Assembly instructions, foam thickness, priming notes..."></textarea>
+                </div>
+                <button type="submit" class="cb-btn cb-btn-primary">Create Part</button>
+            </form>
+        </section>
+    }
+
+    <form class="cb-filter-bar" method="get" action="/projects/@proj.Id/parts">
+        <div class="cb-filter-item">
+            <label class="cb-label">Filter Parts by Name/Notes</label>
+            <input class="cb-input" type="text" name="search" value="@Model.SearchQuery" placeholder="Search parts..." />
+        </div>
+        <div class="cb-filter-item">
+            <label class="cb-label">Filter by Part Type</label>
+            <select class="cb-select" name="type">
+                <option value="">All Part Types</option>
+                @foreach (var pt in Model.PartTypes)
+                {
+                    <option value="@pt" selected="@(pt == Model.FilterType)">@pt</option>
+                }
+            </select>
+        </div>
+        <div>
+            <button type="submit" class="cb-btn cb-btn-primary">Filter Parts</button>
+            <a class="cb-btn cb-btn-secondary" href="/projects/@proj.Id/parts">Reset</a>
+        </div>
+    </form>
+
+    <div class="cb-card-grid">
+        @foreach (var part in Model.Parts)
+        {
+            string? partImgUrl = ImageNameHasher.ResolveImageUrl(part.PartImage?.FilePath);
+
+            <article class="cb-card">
+                @if (!string.IsNullOrEmpty(partImgUrl))
+                {
+                    <img class="cb-card-img" src="@partImgUrl" alt="@(part.PartImage?.AltText ?? part.Name)" loading="lazy" />
+                }
+                else
+                {
+                    <div class="cb-card-placeholder">@part.Type: @part.Name</div>
+                }
+
+                <div class="cb-card-body">
+                    <div class="cb-card-meta">
+                        <span class="cb-badge cb-badge-type">@part.Type</span>
+                        <span>Cost: @part.Price.ToString("0.00")</span>
+                        <span>Time: @part.Time.ToString("0.0") h</span>
+                    </div>
+                    <h3 class="cb-card-title">@part.Name</h3>
+                    <p class="cb-card-desc">@(part.Description ?? "No build notes.")</p>
+
+                    @if (part.MaterialUses.Count > 0)
+                    {
+                        <div class="cb-tag-list">
+                            @foreach (var mu in part.MaterialUses.Where(x => x.Material != null))
+                            {
+                                string? matImgUrl = ImageNameHasher.ResolveImageUrl(mu.Material!.MaterialImage?.FilePath);
+                                <span class="cb-badge cb-status-planned">
+                                    @if (!string.IsNullOrEmpty(matImgUrl))
+                                    {
+                                        <img class="cb-inline-thumb" src="@matImgUrl" alt="@mu.Material.Name" />
+                                    }
+                                    Material: @mu.Material.Name
+                                </span>
+                            }
+                        </div>
+                    }
+
+                    <div class="cb-progress-wrap">
+                        <div class="cb-progress-header">
+                            <span>Part Progress (@part.Tasks.Count tasks)</span>
+                            <span>@part.Progress%</span>
+                        </div>
+                        <div class="cb-progress-track">
+                            <div class="cb-progress-fill" data-progress="@part.Progress"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="cb-card-footer">
+                    <a class="cb-btn cb-btn-primary cb-btn-sm" href="/projects/@proj.Id/parts/@part.Id/tasks">
+                        Open Tasks (@part.Tasks.Count) &rarr;
+                    </a>
+                    @if (isAdmin)
+                    {
+                        <a class="cb-btn cb-btn-outline cb-btn-sm" href="/api/projects/@proj.Id/parts/@part.Id/tasks" target="_blank">
+                            REST: GET
+                        </a>
+                    }
+                    @if (canManage)
+                    {
+                        <button type="button" class="cb-btn cb-btn-danger cb-btn-sm" data-rest-delete="/api/projects/@proj.Id/parts/@part.Id">
+                            Delete
+                        </button>
+                    }
+                </div>
+            </article>
+        }
+    </div>
+
+    <div class="cb-pagination">
+        @for (int p = 1; p <= Model.TotalPages; p++)
+        {
+            <a class="cb-page-link @(p == Model.CurrentPage ? "cb-page-active" : "")"
+               href="/projects/@proj.Id/parts?page=@p&pageSize=@Model.PageSize&search=@Model.SearchQuery&type=@Model.FilterType">
+                Page @p
+            </a>
+        }
+    </div>
+
+    <section class="cb-panel">
+        <div class="cb-section-header">
+            <h2 class="cb-panel-title">Reference Links &amp; Reference Images</h2>
+            @if (canManage)
+            {
+                <button type="button" class="cb-btn cb-btn-secondary cb-btn-sm" data-toggle-target="add-ref-panel">+ Add Reference</button>
+            }
+        </div>
+
+        @if (canManage)
+        {
+            <div id="add-ref-panel" class="cb-hidden cb-mb-1">
+                <form method="post" action="/projects/@proj.Id/references/form" enctype="multipart/form-data">
+                    <div class="cb-form-grid">
+                        <div class="cb-form-group">
+                            <label class="cb-label">Reference Title *</label>
+                            <input class="cb-input" type="text" name="name" required />
+                        </div>
+                        <div class="cb-form-group">
+                            <label class="cb-label">Reference Type</label>
+                            <select class="cb-select" name="type">
+                                @foreach (var rt in Model.ReferenceTypes)
+                                {
+                                    <option value="@rt">@rt</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="cb-form-group">
+                            <label class="cb-label">External URL Link</label>
+                            <input class="cb-input" type="url" name="link" placeholder="https://..." />
+                        </div>
+                        <div class="cb-form-group">
+                            <label class="cb-label">Upload Reference Image</label>
+                            <input class="cb-input" type="file" name="imageFile" accept=".jpg,.jpeg,.png,.webp,.gif,.svg" />
+                        </div>
+                        <div class="cb-form-group">
+                            <label class="cb-label">Or Reference Image URL / Path</label>
+                            <input class="cb-input" type="text" name="imageUrl" maxlength="500" placeholder="/uploads/... or https://..." />
+                        </div>
+                        <div class="cb-form-group">
+                            <label class="cb-label">Reference Image Alt Text</label>
+                            <input class="cb-input" type="text" name="imageAlt" maxlength="500" placeholder="Character sheet / prop angle" />
+                        </div>
+                    </div>
+                    <button type="submit" class="cb-btn cb-btn-primary cb-btn-sm">Save Reference</button>
+                </form>
+            </div>
+        }
+
+        <div class="cb-table-wrap">
+            <table class="cb-table">
+                <thead>
+                    <tr>
+                        <th>Image</th>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>External Link</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in Model.References)
+                    {
+                        var refImg = r.Images.FirstOrDefault();
+                        string? refImgUrl = ImageNameHasher.ResolveImageUrl(refImg?.FilePath);
+                        if (string.IsNullOrEmpty(refImgUrl) && !string.IsNullOrEmpty(r.Link) &&
+                            (r.Link.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
+                             r.Link.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                             r.Link.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) ||
+                             r.Link.EndsWith(".webp", StringComparison.OrdinalIgnoreCase) ||
+                             r.Link.EndsWith(".gif", StringComparison.OrdinalIgnoreCase) ||
+                             r.Link.EndsWith(".svg", StringComparison.OrdinalIgnoreCase) ||
+                             r.Link.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase) ||
+                             r.Link.StartsWith("/Media/", StringComparison.OrdinalIgnoreCase)))
+                        {
+                            refImgUrl = ImageNameHasher.ResolveImageUrl(r.Link);
+                        }
+
+                        <tr>
+                            <td>
+                                @if (!string.IsNullOrEmpty(refImgUrl))
+                                {
+                                    <a href="@refImgUrl" target="_blank" rel="noopener">
+                                        <img class="cb-thumb-sm" src="@refImgUrl" alt="@(refImg?.AltText ?? r.Name)" loading="lazy" />
+                                    </a>
+                                }
+                                else
+                                {
+                                    <span class="cb-muted">No image</span>
+                                }
+                            </td>
+                            <td><strong>@r.Name</strong></td>
+                            <td><span class="cb-badge cb-badge-type">@r.Type</span></td>
+                            <td>
+                                @if (!string.IsNullOrEmpty(r.Link))
+                                {
+                                    <a href="@r.Link" target="_blank" rel="noopener">@r.Link</a>
+                                }
+                                else if (!string.IsNullOrEmpty(refImgUrl))
+                                {
+                                    <a href="@refImgUrl" target="_blank" rel="noopener">@refImgUrl</a>
+                                }
+                            </td>
+                            <td>
+                                @if (canManage)
+                                {
+                                    <button type="button" class="cb-btn cb-btn-danger cb-btn-sm" data-rest-delete="/api/projects/@proj.Id/references/@r.Id">Delete</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+}
+else if (Model.ActiveView == "PartTasks" && Model.CurrentProject != null && Model.CurrentPart != null)
+{
+    var proj = Model.CurrentProject;
+    var part = Model.CurrentPart;
+    bool canManage = UserAccess.CanManageResource(User, proj.UserId);
+    string? partBannerUrl = ImageNameHasher.ResolveImageUrl(part.PartImage?.FilePath);
+
+    <div class="cb-breadcrumb">
+        <a href="/">Home</a>
+        <span class="cb-breadcrumb-sep">&rsaquo;</span>
+        <a href="/projects">Projects</a>
+        <span class="cb-breadcrumb-sep">&rsaquo;</span>
+        <a href="/projects/@proj.Id/parts">@proj.Name</a>
+        <span class="cb-breadcrumb-sep">&rsaquo;</span>
+        <span class="cb-breadcrumb-current">@part.Name &rarr; Tasks</span>
+    </div>
+
+    <div class="cb-panel">
+        <div class="cb-detail-media">
+            @if (!string.IsNullOrEmpty(partBannerUrl))
+            {
+                <img class="cb-detail-banner-img" src="@partBannerUrl" alt="@(part.PartImage?.AltText ?? part.Name)" />
+            }
+            <div class="cb-detail-body">
+                <div class="cb-section-header">
+                    <div>
+                        <span class="cb-badge cb-badge-type">@proj.Name &rarr; @part.Name</span>
+                        <h1 class="cb-section-title cb-mt-1">@part.Name &mdash; Fabrication Tasks</h1>
+                    </div>
+                    <div class="cb-hero-actions">
+                        @if (isAdmin)
+                        {
+                            <a class="cb-btn cb-btn-outline cb-btn-sm" href="/api/projects/@proj.Id/parts/@part.Id/tasks" target="_blank">
+                                REST: GET /api/projects/@proj.Id/parts/@part.Id/tasks
+                            </a>
+                        }
+                        @if (canManage)
+                        {
+                            <button type="button" class="cb-btn cb-btn-secondary cb-btn-sm" data-toggle-target="edit-part-panel">Edit Part &amp; Image</button>
+                            <button type="button" class="cb-btn cb-btn-primary cb-btn-sm" data-toggle-target="add-task-panel">+ Add Build Task</button>
+                        }
+                    </div>
+                </div>
+                <p class="cb-card-desc">@part.Description</p>
+                <div class="cb-card-meta">
+                    <span>Part Type: <strong>@part.Type</strong></span>
+                    <span>Part Cost: <strong>@part.Price.ToString("0.00")</strong></span>
+                    <span>Part Time: <strong>@part.Time.ToString("0.0") h</strong></span>
+                    <span>Part Progress: <strong>@part.Progress%</strong></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (canManage)
+    {
+        <section id="edit-part-panel" class="cb-panel cb-hidden">
+            <h2 class="cb-panel-title">Edit Costume Part &amp; Photo</h2>
+            <form method="post" action="/projects/@proj.Id/parts/form" enctype="multipart/form-data">
+                <input type="hidden" name="id" value="@part.Id" />
+                <div class="cb-form-grid">
+                    <div class="cb-form-group">
+                        <label class="cb-label">Part Name *</label>
+                        <input class="cb-input" type="text" name="name" value="@part.Name" maxlength="127" required />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Part Type</label>
+                        <select class="cb-select" name="type">
+                            @foreach (var pt in Model.PartTypes)
+                            {
+                                <option value="@pt" selected="@(pt == part.Type)">@pt</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Cost / Price</label>
+                        <input class="cb-input" type="number" step="0.01" min="0" name="price" value="@part.Price" />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Crafting Hours</label>
+                        <input class="cb-input" type="number" step="0.5" min="0" name="time" value="@part.Time" />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Progress (0–100%)</label>
+                        <input class="cb-input" type="number" min="0" max="100" name="progress" value="@part.Progress" />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Upload New Part Photo</label>
+                        <input class="cb-input" type="file" name="imageFile" accept=".jpg,.jpeg,.png,.webp,.gif,.svg" />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Or Part Image URL / Path</label>
+                        <input class="cb-input" type="text" name="imageUrl" value="@part.PartImage?.FilePath" maxlength="500" placeholder="/uploads/... or https://..." />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Part Image Alt Text</label>
+                        <input class="cb-input" type="text" name="imageAlt" value="@part.PartImage?.AltText" maxlength="500" />
+                    </div>
+                </div>
+                <div class="cb-form-group">
+                    <label class="cb-label">Fabrication Instructions / Notes</label>
+                    <textarea class="cb-textarea" name="description">@part.Description</textarea>
+                </div>
+                <button type="submit" class="cb-btn cb-btn-primary">Update Part</button>
+            </form>
+        </section>
+
+        <section id="add-task-panel" class="cb-panel cb-hidden">
+            <h2 class="cb-panel-title">Create Task under Part '@part.Name'</h2>
+            <form method="post" action="/projects/@proj.Id/parts/@part.Id/tasks/form">
+                <div class="cb-form-grid">
+                    <div class="cb-form-group">
+                        <label class="cb-label">Task Name *</label>
+                        <input class="cb-input" type="text" name="name" maxlength="127" required />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Task Type</label>
+                        <select class="cb-select" name="type">
+                            @foreach (var tt in Model.TaskTypes)
+                            {
+                                <option value="@tt">@tt</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Estimated / Logged Hours</label>
+                        <input class="cb-input" type="number" step="0.5" min="0" name="time" value="1.0" />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Mark Completed Immediately?</label>
+                        <select class="cb-select" name="isCompleted">
+                            <option value="false">No (In Progress)</option>
+                            <option value="true">Yes (Completed Today)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="cb-form-group">
+                    <label class="cb-label">Task Description</label>
+                    <input class="cb-input" type="text" name="description" maxlength="500" placeholder="Step-by-step instructions for this task..." />
+                </div>
+                <button type="submit" class="cb-btn cb-btn-primary">Create Task</button>
+            </form>
+        </section>
+    }
+
+    <form class="cb-filter-bar" method="get" action="/projects/@proj.Id/parts/@part.Id/tasks">
+        <div class="cb-filter-item">
+            <label class="cb-label">Search Tasks</label>
+            <input class="cb-input" type="text" name="search" value="@Model.SearchQuery" placeholder="Search task name or notes..." />
+        </div>
+        <div class="cb-filter-item">
+            <label class="cb-label">Filter by Task Type</label>
+            <select class="cb-select" name="type">
+                <option value="">All Task Types</option>
+                @foreach (var tt in Model.TaskTypes)
+                {
+                    <option value="@tt" selected="@(tt == Model.FilterType)">@tt</option>
+                }
+            </select>
+        </div>
+        <div class="cb-filter-item">
+            <label class="cb-label">Completion State</label>
+            <select class="cb-select" name="status">
+                <option value="">All</option>
+                <option value="pending" selected="@(Model.FilterStatus == "pending")">Pending Only</option>
+                <option value="completed" selected="@(Model.FilterStatus == "completed")">Completed Only</option>
+            </select>
+        </div>
+        <div>
+            <button type="submit" class="cb-btn cb-btn-primary">Filter Tasks</button>
+            <a class="cb-btn cb-btn-secondary" href="/projects/@proj.Id/parts/@part.Id/tasks">Reset</a>
+        </div>
+    </form>
+
+    <div class="cb-panel">
+        <div class="cb-table-wrap">
+            <table class="cb-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Task Name &amp; Notes</th>
+                        <th>Type</th>
+                        <th>Hours</th>
+                        <th>Status / Completion Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var t in Model.Tasks)
+                    {
+                        <tr>
+                            <td>#@t.Id</td>
+                            <td>
+                                <strong class="@(t.IsCompleted ? "cb-task-completed" : "")">@t.Name</strong>
+                                @if (!string.IsNullOrEmpty(t.Description))
+                                {
+                                    <div class="cb-muted">@t.Description</div>
+                                }
+                            </td>
+                            <td><span class="cb-badge cb-badge-type">@t.Type</span></td>
+                            <td>@t.Time.ToString("0.0") h</td>
+                            <td>
+                                @if (t.IsCompleted)
+                                {
+                                    <span class="cb-badge cb-status-completed">Completed @t.CompletionDate?.ToString("yyyy-MM-dd")</span>
+                                }
+                                else
+                                {
+                                    <span class="cb-badge cb-status-planned">Pending</span>
+                                }
+                            </td>
+                            <td>
+                                @if (isAdmin)
+                                {
+                                    <a class="cb-btn cb-btn-outline cb-btn-sm" href="/api/projects/@proj.Id/parts/@part.Id/tasks/@t.Id" target="_blank">REST: GET</a>
+                                }
+                                @if (canManage)
+                                {
+                                    <form class="cb-inline-form" method="post" action="/projects/@proj.Id/parts/@part.Id/tasks/form">
+                                        <input type="hidden" name="id" value="@t.Id" />
+                                        <input type="hidden" name="name" value="@t.Name" />
+                                        <input type="hidden" name="description" value="@t.Description" />
+                                        <input type="hidden" name="time" value="@t.Time" />
+                                        <input type="hidden" name="type" value="@t.Type" />
+                                        <input type="hidden" name="isCompleted" value="@(!t.IsCompleted ? "true" : "false")" />
+                                        <button type="submit" class="cb-btn cb-btn-secondary cb-btn-sm">
+                                            @(t.IsCompleted ? "Reopen" : "Complete")
+                                        </button>
+                                    </form>
+                                    <button type="button" class="cb-btn cb-btn-danger cb-btn-sm" data-rest-delete="/api/projects/@proj.Id/parts/@part.Id/tasks/@t.Id">
+                                        Delete
+                                    </button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="cb-pagination">
+        @for (int p = 1; p <= Model.TotalPages; p++)
+        {
+            <a class="cb-page-link @(p == Model.CurrentPage ? "cb-page-active" : "")"
+               href="/projects/@proj.Id/parts/@part.Id/tasks?page=@p&pageSize=@Model.PageSize&search=@Model.SearchQuery&type=@Model.FilterType&status=@Model.FilterStatus">
+                Page @p
+            </a>
+        }
+    </div>
+}
+else if (Model.ActiveView == "Tools")
+{
+    <div class="cb-breadcrumb">
+        <a href="/">Home</a>
+        <span class="cb-breadcrumb-sep">&rsaquo;</span>
+        <span class="cb-breadcrumb-current">Tools Inventory</span>
+    </div>
+
+    <div class="cb-section-header">
+        <h1 class="cb-section-title">Workshop Tools (@Model.TotalItems)</h1>
+        <div class="cb-hero-actions">
+            @if (isAuth)
+            {
+                <button type="button" class="cb-btn cb-btn-primary cb-btn-sm" data-toggle-target="add-tool-panel">+ Add Tool</button>
+            }
+            <a class="cb-btn cb-btn-outline cb-btn-sm" href="/materials">Go to Materials &rarr;</a>
+        </div>
+    </div>
+
+    @if (isAuth)
+    {
+        <section id="add-tool-panel" class="cb-panel cb-hidden">
+            <h2 class="cb-panel-title">Add Workshop Tool</h2>
+            <form method="post" action="/tools/form" enctype="multipart/form-data">
+                <div class="cb-form-grid">
+                    <div class="cb-form-group">
+                        <label class="cb-label">Tool Name *</label>
+                        <input class="cb-input" type="text" name="name" maxlength="127" required />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Tool Type</label>
+                        <select class="cb-select" name="toolType">
+                            @foreach (var tt in Model.ToolTypes)
+                            {
+                                <option value="@tt">@tt</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Price</label>
+                        <input class="cb-input" type="number" step="0.01" min="0" name="price" value="0.00" />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Upload Tool Image</label>
+                        <input class="cb-input" type="file" name="imageFile" accept=".jpg,.jpeg,.png,.webp,.gif,.svg" />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Or Tool Image URL / Path</label>
+                        <input class="cb-input" type="text" name="imageUrl" maxlength="500" placeholder="/uploads/... or https://..." />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Tool Image Alt Text</label>
+                        <input class="cb-input" type="text" name="imageAlt" maxlength="500" placeholder="Tool photo description" />
+                    </div>
+                </div>
+                <div class="cb-form-group">
+                    <label class="cb-label">Description</label>
+                    <input class="cb-input" type="text" name="description" maxlength="500" placeholder="Specifications, wattage, blade size, usage notes..." />
+                </div>
+                <button type="submit" class="cb-btn cb-btn-primary">Save Tool</button>
+            </form>
+        </section>
+    }
+
+    <form class="cb-filter-bar" method="get" action="/tools">
+        <div class="cb-filter-item">
+            <label class="cb-label">Search Tools</label>
+            <input class="cb-input" type="text" name="search" value="@Model.SearchQuery" placeholder="Search tool name or description..." />
+        </div>
+        <div class="cb-filter-item">
+            <label class="cb-label">Filter by Tool Type</label>
+            <select class="cb-select" name="type">
+                <option value="">All Tool Types</option>
+                @foreach (var tt in Model.ToolTypes)
+                {
+                    <option value="@tt" selected="@(tt == Model.FilterType)">@tt</option>
+                }
+            </select>
+        </div>
+        <div class="cb-filter-item">
+            <label class="cb-label">Page Size</label>
+            <select class="cb-select" name="pageSize">
+                <option value="4" selected="@(Model.PageSize == 4)">4 per page</option>
+                <option value="8" selected="@(Model.PageSize == 8)">8 per page</option>
+                <option value="16" selected="@(Model.PageSize == 16)">16 per page</option>
+            </select>
+        </div>
+        <div>
+            <button type="submit" class="cb-btn cb-btn-primary">Filter Tools</button>
+            <a class="cb-btn cb-btn-secondary" href="/tools">Reset</a>
+        </div>
+    </form>
+
+    <div class="cb-card-grid">
+        @foreach (var tl in Model.Tools)
+        {
+            bool canManageTool = UserAccess.CanManageResource(User, tl.UserId);
+            string? toolImgUrl = ImageNameHasher.ResolveImageUrl(tl.ToolImage?.FilePath);
+
+            <article class="cb-card">
+                @if (!string.IsNullOrEmpty(toolImgUrl))
+                {
+                    <img class="cb-card-img" src="@toolImgUrl" alt="@(tl.ToolImage?.AltText ?? tl.Name)" loading="lazy" />
+                }
+                else
+                {
+                    <div class="cb-card-placeholder">@tl.ToolType: @tl.Name</div>
+                }
+
+                <div class="cb-card-body">
+                    <div class="cb-card-meta">
+                        <span class="cb-badge cb-badge-type">@tl.ToolType</span>
+                        <span>Price: @tl.Price.ToString("0.00")</span>
+                    </div>
+                    <h2 class="cb-card-title">@tl.Name</h2>
+                    <p class="cb-card-desc">@(tl.Description ?? "No description provided.")</p>
+
+                    @if (canManageTool)
+                    {
+                        <div id="edit-tool-@tl.Id" class="cb-hidden cb-mt-1">
+                            <form method="post" action="/tools/form" enctype="multipart/form-data">
+                                <input type="hidden" name="id" value="@tl.Id" />
+                                <div class="cb-form-group">
+                                    <label class="cb-label">Name</label>
+                                    <input class="cb-input" type="text" name="name" value="@tl.Name" required />
+                                </div>
+                                <div class="cb-form-group">
+                                    <label class="cb-label">Tool Type</label>
+                                    <select class="cb-select" name="toolType">
+                                        @foreach (var tt in Model.ToolTypes)
+                                        {
+                                            <option value="@tt" selected="@(tt == tl.ToolType)">@tt</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="cb-form-group">
+                                    <label class="cb-label">Price</label>
+                                    <input class="cb-input" type="number" step="0.01" min="0" name="price" value="@tl.Price" />
+                                </div>
+                                <div class="cb-form-group">
+                                    <label class="cb-label">Description</label>
+                                    <input class="cb-input" type="text" name="description" value="@tl.Description" maxlength="500" />
+                                </div>
+                                <div class="cb-form-group">
+                                    <label class="cb-label">Upload New Tool Image</label>
+                                    <input class="cb-input" type="file" name="imageFile" accept=".jpg,.jpeg,.png,.webp,.gif,.svg" />
+                                </div>
+                                <div class="cb-form-group">
+                                    <label class="cb-label">Or Image URL / Path</label>
+                                    <input class="cb-input" type="text" name="imageUrl" value="@tl.ToolImage?.FilePath" maxlength="500" />
+                                </div>
+                                <div class="cb-form-group">
+                                    <label class="cb-label">Image Alt Text</label>
+                                    <input class="cb-input" type="text" name="imageAlt" value="@tl.ToolImage?.AltText" maxlength="500" />
+                                </div>
+                                <button type="submit" class="cb-btn cb-btn-primary cb-btn-sm">Update Tool</button>
+                            </form>
+                        </div>
+                    }
+                </div>
+
+                <div class="cb-card-footer">
+                    @if (canManageTool)
+                    {
+                        <button type="button" class="cb-btn cb-btn-secondary cb-btn-sm" data-toggle-target="edit-tool-@tl.Id">Edit / Image</button>
+                    }
+                    @if (isAdmin)
+                    {
+                        <a class="cb-btn cb-btn-outline cb-btn-sm" href="/api/tools/@tl.Id" target="_blank">REST: GET</a>
+                    }
+                    @if (canManageTool)
+                    {
+                        <button type="button" class="cb-btn cb-btn-danger cb-btn-sm" data-rest-delete="/api/tools/@tl.Id">Delete</button>
+                    }
+                </div>
+            </article>
+        }
+    </div>
+
+    <div class="cb-pagination">
+        @for (int p = 1; p <= Model.TotalPages; p++)
+        {
+            <a class="cb-page-link @(p == Model.CurrentPage ? "cb-page-active" : "")"
+               href="/tools?page=@p&pageSize=@Model.PageSize&search=@Model.SearchQuery&type=@Model.FilterType">
+                Page @p
+            </a>
+        }
+    </div>
+}
+else if (Model.ActiveView == "Materials")
+{
+    <div class="cb-breadcrumb">
+        <a href="/">Home</a>
+        <span class="cb-breadcrumb-sep">&rsaquo;</span>
+        <span class="cb-breadcrumb-current">Materials Inventory</span>
+    </div>
+
+    <div class="cb-section-header">
+        <h1 class="cb-section-title">Cosplay Materials (@Model.TotalItems)</h1>
+        <div class="cb-hero-actions">
+            @if (isAuth)
+            {
+                <button type="button" class="cb-btn cb-btn-primary cb-btn-sm" data-toggle-target="add-material-panel">+ Add Material</button>
+            }
+            <a class="cb-btn cb-btn-outline cb-btn-sm" href="/tools">&larr; Go to Tools</a>
+        </div>
+    </div>
+
+    @if (isAuth)
+    {
+        <section id="add-material-panel" class="cb-panel cb-hidden">
+            <h2 class="cb-panel-title">Add Cosplay Material</h2>
+            <form method="post" action="/materials/form" enctype="multipart/form-data">
+                <div class="cb-form-grid">
+                    <div class="cb-form-group">
+                        <label class="cb-label">Material Name *</label>
+                        <input class="cb-input" type="text" name="name" maxlength="127" required />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Material Type</label>
+                        <select class="cb-select" name="materialType">
+                            @foreach (var mt in Model.MaterialTypes)
+                            {
+                                <option value="@mt">@mt</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Price</label>
+                        <input class="cb-input" type="number" step="0.01" min="0" name="price" value="0.00" />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Amount / Quantity</label>
+                        <input class="cb-input" type="number" step="0.1" min="0" name="amount" value="1.0" />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Source / Supplier</label>
+                        <input class="cb-input" type="text" name="source" maxlength="255" placeholder="Local store, CosplayShop, etc." />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Upload Material Swatch Photo</label>
+                        <input class="cb-input" type="file" name="imageFile" accept=".jpg,.jpeg,.png,.webp,.gif,.svg" />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Or Material Image URL / Path</label>
+                        <input class="cb-input" type="text" name="imageUrl" maxlength="500" placeholder="/uploads/... or https://..." />
+                    </div>
+                    <div class="cb-form-group">
+                        <label class="cb-label">Material Image Alt Text</label>
+                        <input class="cb-input" type="text" name="imageAlt" maxlength="500" placeholder="Material swatch description" />
+                    </div>
+                </div>
+                <div class="cb-form-group">
+                    <label class="cb-label">Description</label>
+                    <input class="cb-input" type="text" name="description" maxlength="500" placeholder="Density, color code, width, washing instructions..." />
+                </div>
+                <button type="submit" class="cb-btn cb-btn-primary">Save Material</button>
+            </form>
+        </section>
+    }
+
+    <form class="cb-filter-bar" method="get" action="/materials">
+        <div class="cb-filter-item">
+            <label class="cb-label">Search Materials</label>
+            <input class="cb-input" type="text" name="search" value="@Model.SearchQuery" placeholder="Search material name, description, or source..." />
+        </div>
+        <div class="cb-filter-item">
+            <label class="cb-label">Filter by Material Type</label>
+            <select class="cb-select" name="type">
+                <option value="">All Material Types</option>
+                @foreach (var mt in Model.MaterialTypes)
+                {
+                    <option value="@mt" selected="@(mt == Model.FilterType)">@mt</option>
+                }
+            </select>
+        </div>
+        <div class="cb-filter-item">
+            <label class="cb-label">Page Size</label>
+            <select class="cb-select" name="pageSize">
+                <option value="4" selected="@(Model.PageSize == 4)">4 per page</option>
+                <option value="8" selected="@(Model.PageSize == 8)">8 per page</option>
+                <option value="16" selected="@(Model.PageSize == 16)">16 per page</option>
+            </select>
+        </div>
+        <div>
+            <button type="submit" class="cb-btn cb-btn-primary">Filter Materials</button>
+            <a class="cb-btn cb-btn-secondary" href="/materials">Reset</a>
+        </div>
+    </form>
+
+    <div class="cb-card-grid">
+        @foreach (var m in Model.Materials)
+        {
+            string? matImgUrl = ImageNameHasher.ResolveImageUrl(m.MaterialImage?.FilePath);
+
+            <article class="cb-card">
+                @if (!string.IsNullOrEmpty(matImgUrl))
+                {
+                    <img class="cb-card-img" src="@matImgUrl" alt="@(m.MaterialImage?.AltText ?? m.Name)" loading="lazy" />
+                }
+                else
+                {
+                    <div class="cb-card-placeholder">@m.MaterialType: @m.Name</div>
+                }
+
+                <div class="cb-card-body">
+                    <div class="cb-card-meta">
+                        <span class="cb-badge cb-badge-type">@m.MaterialType</span>
+                        <span>Qty: @m.Amount</span>
+                        <span>Price: @m.Price.ToString("0.00")</span>
+                        @if (!string.IsNullOrEmpty(m.Source))
+                        {
+                            <span>Source: @m.Source</span>
+                        }
+                    </div>
+                    <h2 class="cb-card-title">@m.Name</h2>
+                    <p class="cb-card-desc">@(m.Description ?? "No description provided.")</p>
+
+                    @if (isAuth)
+                    {
+                        <div id="edit-material-@m.Id" class="cb-hidden cb-mt-1">
+                            <form method="post" action="/materials/form" enctype="multipart/form-data">
+                                <input type="hidden" name="id" value="@m.Id" />
+                                <div class="cb-form-group">
+                                    <label class="cb-label">Name</label>
+                                    <input class="cb-input" type="text" name="name" value="@m.Name" required />
+                                </div>
+                                <div class="cb-form-group">
+                                    <label class="cb-label">Material Type</label>
+                                    <select class="cb-select" name="materialType">
+                                        @foreach (var mt in Model.MaterialTypes)
+                                        {
+                                            <option value="@mt" selected="@(mt == m.MaterialType)">@mt</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="cb-form-group">
+                                    <label class="cb-label">Price</label>
+                                    <input class="cb-input" type="number" step="0.01" min="0" name="price" value="@m.Price" />
+                                </div>
+                                <div class="cb-form-group">
+                                    <label class="cb-label">Amount</label>
+                                    <input class="cb-input" type="number" step="0.1" min="0" name="amount" value="@m.Amount" />
+                                </div>
+                                <div class="cb-form-group">
+                                    <label class="cb-label">Source</label>
+                                    <input class="cb-input" type="text" name="source" value="@m.Source" maxlength="255" />
+                                </div>
+                                <div class="cb-form-group">
+                                    <label class="cb-label">Description</label>
+                                    <input class="cb-input" type="text" name="description" value="@m.Description" maxlength="500" />
+                                </div>
+                                <div class="cb-form-group">
+                                    <label class="cb-label">Upload New Material Swatch Image</label>
+                                    <input class="cb-input" type="file" name="imageFile" accept=".jpg,.jpeg,.png,.webp,.gif,.svg" />
+                                </div>
+                                <div class="cb-form-group">
+                                    <label class="cb-label">Or Image URL / Path</label>
+                                    <input class="cb-input" type="text" name="imageUrl" value="@m.MaterialImage?.FilePath" maxlength="500" />
+                                </div>
+                                <div class="cb-form-group">
+                                    <label class="cb-label">Image Alt Text</label>
+                                    <input class="cb-input" type="text" name="imageAlt" value="@m.MaterialImage?.AltText" maxlength="500" />
+                                </div>
+                                <button type="submit" class="cb-btn cb-btn-primary cb-btn-sm">Update Material</button>
+                            </form>
+                        </div>
+                    }
+                </div>
+
+                <div class="cb-card-footer">
+                    @if (isAuth)
+                    {
+                        <button type="button" class="cb-btn cb-btn-secondary cb-btn-sm" data-toggle-target="edit-material-@m.Id">Edit / Image</button>
+                    }
+                    @if (isAdmin)
+                    {
+                        <a class="cb-btn cb-btn-outline cb-btn-sm" href="/api/materials/@m.Id" target="_blank">REST: GET</a>
+                    }
+                    @if (isAuth)
+                    {
+                        <button type="button" class="cb-btn cb-btn-danger cb-btn-sm" data-rest-delete="/api/materials/@m.Id">Delete</button>
+                    }
+                </div>
+            </article>
+        }
+    </div>
+
+    <div class="cb-pagination">
+        @for (int p = 1; p <= Model.TotalPages; p++)
+        {
+            <a class="cb-page-link @(p == Model.CurrentPage ? "cb-page-active" : "")"
+               href="/materials?page=@p&pageSize=@Model.PageSize&search=@Model.SearchQuery&type=@Model.FilterType">
+                Page @p
+            </a>
+        }
+    </div>
+}
