@@ -74,6 +74,7 @@ namespace Cosplabuilder.Helpers
             return CanManageResource(user, project.UserId);
         }
 
+        // computes entity tags to check if data has changed, and saves connection resources if nothing updated
         public static string ComputeETag(object payload)
         {
             string json = JsonSerializer.Serialize(payload);

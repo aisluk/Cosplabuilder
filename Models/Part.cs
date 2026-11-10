@@ -25,6 +25,7 @@ namespace Cosplabuilder.Models
         [Column("Time", TypeName = "decimal(6, 2)")]
         public decimal Time { get; set; } = 0.00m;
 
+        [Range(0, 100, ErrorMessage = "Progress must be an integer between 0 and 100.")]
         [Column("Progress")]
         public int Progress { get; set; } = 0;
 

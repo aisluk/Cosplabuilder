@@ -132,9 +132,15 @@ app.Use(async (context, next) =>
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 
-// Also serve images stored inside the project's Media/ directory at /Media/...
-string mediaPath = Path.Combine(app.Environment.ContentRootPath, "Media");
-Directory.CreateDirectory(mediaPath);
+// Explicitly serve uploaded images from both wwwroot/uploads and Media/
+string uploadsPath = EmailService.GetUploadsFolderPath(app.Environment);
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(uploadsPath),
+    RequestPath = "/uploads"
+});
+
+string mediaPath = EmailService.GetMediaFolderPath(app.Environment);
 app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new PhysicalFileProvider(mediaPath),

@@ -15,17 +15,18 @@ namespace Cosplabuilder.Models
         [Column("Name")]
         public string Name { get; set; } = string.Empty;
 
-        [MaxLength(255)]
+        [MaxLength(127)]
         [Column("Fandom")]
         public string? Fandom { get; set; }
 
-        [MaxLength(255)]
+        [MaxLength(127)]
         [Column("Character")]
         public string? Character { get; set; }
 
         [Column("Description", TypeName = "text")]
         public string? Description { get; set; }
 
+        [Range(0, 100, ErrorMessage = "Progress must be an integer between 0 and 100.")]
         [Column("Progress")]
         public int Progress { get; set; } = 0;
 
@@ -44,7 +45,7 @@ namespace Cosplabuilder.Models
         public string Status { get; set; } = "Planned";
 
         [Column("Is_public")]
-        public bool IsPublic { get; set; } = true;
+        public bool IsPublic { get; set; } = false;
 
         [Column("fk_Imageid_Image")]
         public int? ImageId { get; set; }

@@ -2,8 +2,11 @@ using Cosplabuilder.Helpers;
 using Cosplabuilder.Models;
 using Cosplabuilder.Services;
 using Cosplabuilder.Views.Data;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace Cosplabuilder.Controllers
 {
@@ -44,6 +47,7 @@ namespace Cosplabuilder.Controllers
             var projectsQuery = _db.Projects
                 .Include(p => p.CoverImage)
                 .Include(p => p.Owner)
+                    .ThenInclude(u => u!.AvatarImage)
                 .Include(p => p.Parts)
                     .ThenInclude(pt => pt.Tasks)
                 .Include(p => p.References)
@@ -71,14 +75,16 @@ namespace Cosplabuilder.Controllers
                 .ThenBy(t => t.Id)
                 .ToListAsync();
 
-            var toolsQuery = _db.Tools.Include(t => t.ToolImage).AsQueryable();
-            if (!isAdmin)
-            {
-                toolsQuery = toolsQuery.Where(t => t.UserId == profileUser.Id);
-            }
-            var tools = await toolsQuery.ToListAsync();
+            var tools = await _db.Tools
+                .Include(t => t.ToolImage)
+                .Where(t => t.UserId == profileUser.Id)
+                .ToListAsync();
 
-            var materials = await _db.Materials.Include(m => m.MaterialImage).ToListAsync();
+            var ownedMaterialIds = await _emailService.GetOwnedMaterialIdsAsync(_db, profileUser.Id);
+            var materials = await _db.Materials
+                .Include(m => m.MaterialImage)
+                .Where(m => ownedMaterialIds.Contains(m.Id))
+                .ToListAsync();
 
             var model = new DashboardCompositeViewModel
             {
@@ -105,9 +111,7 @@ namespace Cosplabuilder.Controllers
             string language,
             string currency,
             string? newPassword,
-            IFormFile? avatarFile,
-            string? avatarUrl,
-            string? avatarAlt)
+            IFormFile? avatarFile)
         {
             int? userId = UserAccess.GetUserId(User);
             if (!userId.HasValue)
@@ -115,7 +119,9 @@ namespace Cosplabuilder.Controllers
                 return RedirectToAction("Index", "Login");
             }
 
-            var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId.Value);
+            var user = await _db.Users
+                .Include(u => u.AvatarImage)
+                .FirstOrDefaultAsync(u => u.Id == userId.Value);
             if (user == null)
             {
                 return NotFound();
@@ -141,25 +147,53 @@ namespace Cosplabuilder.Controllers
                 user.PasswordHashed = PasswordHasher.HashPassword(newPassword);
             }
 
-            if (avatarFile != null && avatarFile.Length > 0 && !ImageNameHasher.IsAllowedExtension(avatarFile.FileName))
+            string? activeAvatarPath = user.AvatarImage?.FilePath;
+            if (avatarFile != null && avatarFile.Length > 0)
             {
-                TempData["FlashError"] = "Unsupported image file extension.";
-                return RedirectToAction("Index");
-            }
+                if (!ImageNameHasher.IsAllowedExtension(avatarFile.FileName))
+                {
+                    TempData["FlashError"] = "Unsupported image file extension.";
+                    return RedirectToAction("Index");
+                }
 
-            var uploadedImg = await _emailService.SaveOrResolveImageAsync(
-                _db,
-                avatarFile,
-                avatarUrl,
-                string.IsNullOrWhiteSpace(avatarAlt) ? $"{user.Username} icon" : avatarAlt,
-                user.Id);
+                var uploadedImg = await _emailService.SaveUploadedImageAsync(
+                    _db,
+                    avatarFile,
+                    $"{user.Username} avatar",
+                    user.Id);
 
-            if (uploadedImg != null)
-            {
-                user.ImageId = uploadedImg.Id;
+                if (uploadedImg != null)
+                {
+                    user.ImageId = uploadedImg.Id;
+                    user.AvatarImage = uploadedImg;
+                    activeAvatarPath = uploadedImg.FilePath;
+                }
             }
 
             await _db.SaveChangesAsync();
+
+            // Refresh authentication cookie so updated avatar, currency, and language appear across all pages immediately
+            string roleName = user.Type >= 1 ? UserRoles.Admin : UserRoles.Member;
+            var claims = new List<Claim>
+            {
+                new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new(ClaimTypes.Name, user.Username),
+                new(ClaimTypes.Email, user.Email),
+                new(ClaimTypes.Role, roleName),
+                new("Currency", user.Currency),
+                new("Language", user.Language),
+                new("AvatarUrl", ImageNameHasher.ResolveImageUrl(activeAvatarPath) ?? string.Empty)
+            };
+            var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+            await HttpContext.SignInAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme,
+                new ClaimsPrincipal(identity),
+                new AuthenticationProperties
+                {
+                    IsPersistent = true,
+                    ExpiresUtc = DateTimeOffset.UtcNow.AddDays(7)
+                });
+
             TempData["FlashSuccess"] = "Profile preferences updated.";
             return RedirectToAction("Index");
         }
@@ -178,7 +212,7 @@ namespace Cosplabuilder.Controllers
                 return RedirectToAction("Error", "Home", new { code = 404, message = "User not found." });
             }
 
-            if (targetUser.Type == 1)
+            if (targetUser.Type >= 1)
             {
                 TempData["FlashError"] = "Administrators cannot be demoted back to regular members.";
                 return RedirectToAction("Index");

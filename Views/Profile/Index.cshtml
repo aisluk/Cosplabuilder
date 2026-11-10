@@ -5,19 +5,19 @@
     bool isAuth = UserAccess.IsAuthenticated(User);
     bool isAdmin = UserAccess.IsAdmin(User);
     string currency = Model.ProfileUser.Currency;
+    string defaultAvatarSvg = "data:image/svg+xml;utf8," + Uri.EscapeDataString(
+        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>" +
+        "<rect width='64' height='64' fill='#1e1b4b'/>" +
+        "<circle cx='32' cy='24' r='12' fill='#8b5cf6'/>" +
+        "<path d='M12 56c0-11 9-18 20-18s20 7 20 18' fill='#8b5cf6'/>" +
+        "</svg>");
     string? profileAvatarUrl = ImageNameHasher.ResolveImageUrl(Model.ProfileUser.AvatarImage?.FilePath);
+    string displayAvatarUrl = string.IsNullOrEmpty(profileAvatarUrl) ? defaultAvatarSvg : profileAvatarUrl;
 }
 
 <div class="cb-panel">
     <div class="cb-profile-header">
-        @if (!string.IsNullOrEmpty(profileAvatarUrl))
-        {
-            <img class="cb-avatar-lg" src="@profileAvatarUrl" alt="@(Model.ProfileUser.AvatarImage?.AltText ?? $"{Model.ProfileUser.Username} avatar")" />
-        }
-        else
-        {
-            <div class="cb-badge cb-role-member">@Model.ProfileUser.Username</div>
-        }
+        <img class="cb-avatar-lg" src="@displayAvatarUrl" alt="@(Model.ProfileUser.AvatarImage?.AltText ?? $"{Model.ProfileUser.Username} avatar")" />
 
         <div>
             <h1 class="cb-section-title">@Model.ProfileUser.Username &mdash; Workshop Dashboard</h1>
@@ -145,7 +145,22 @@
 @if (isAuth)
 {
     <section class="cb-panel">
-        <h2 class="cb-panel-title">Profile Settings &amp; Avatar</h2>
+        <div class="cb-profile-header cb-mb-1">
+            <img class="cb-avatar-lg" src="@displayAvatarUrl" alt="Current profile picture" />
+            <div>
+                <h2 class="cb-panel-title">Profile Settings &amp; Avatar</h2>
+                <p class="cb-muted">
+                    @if (!string.IsNullOrEmpty(profileAvatarUrl))
+                    {
+                        <span>Current avatar path: <code>@profileAvatarUrl</code></span>
+                    }
+                    else
+                    {
+                        <span>No custom profile picture uploaded yet &mdash; select an image file below.</span>
+                    }
+                </p>
+            </div>
+        </div>
         <form method="post" action="/profile/preferences" enctype="multipart/form-data">
             <div class="cb-form-grid">
                 <div class="cb-form-group">
@@ -175,17 +190,7 @@
 
                 <div class="cb-form-group">
                     <label class="cb-label" for="pref-avatar">Upload New Avatar Image</label>
-                    <input class="cb-input" type="file" id="pref-avatar" name="avatarFile" accept=".jpg,.jpeg,.png,.webp,.gif,.svg" />
-                </div>
-
-                <div class="cb-form-group">
-                    <label class="cb-label" for="pref-avatar-url">Or Avatar Image URL / Path</label>
-                    <input class="cb-input" type="text" id="pref-avatar-url" name="avatarUrl" value="@Model.ProfileUser.AvatarImage?.FilePath" maxlength="500" placeholder="/uploads/... or https://..." />
-                </div>
-
-                <div class="cb-form-group">
-                    <label class="cb-label" for="pref-avatar-alt">Avatar Alt Text</label>
-                    <input class="cb-input" type="text" id="pref-avatar-alt" name="avatarAlt" value="@Model.ProfileUser.AvatarImage?.AltText" maxlength="500" placeholder="User avatar description" />
+                    <input class="cb-input" type="file" id="pref-avatar" name="avatarFile" accept=".jpg,.jpeg,.png,.webp,.gif,.bmp,.svg" />
                 </div>
             </div>
             <button type="submit" class="cb-btn cb-btn-primary">Save Profile Preferences</button>
@@ -217,17 +222,14 @@
                             <td>#@u.Id</td>
                             <td>
                                 <div class="cb-owner-chip">
-                                    @if (!string.IsNullOrEmpty(uAvatarUrl))
-                                    {
-                                        <img class="cb-avatar-sm" src="@uAvatarUrl" alt="@(u.AvatarImage?.AltText ?? u.Username)" />
-                                    }
+                                    <img class="cb-avatar-sm" src="@(string.IsNullOrEmpty(uAvatarUrl) ? defaultAvatarSvg : uAvatarUrl)" alt="@(u.AvatarImage?.AltText ?? u.Username)" />
                                     <strong>@u.Username</strong>
                                 </div>
                             </td>
                             <td>@u.Email</td>
                             <td>@u.Language / @u.Currency</td>
                             <td>
-                                <span class="cb-badge @(u.Type == 1 ? "cb-role-admin" : "cb-role-member")">@u.RoleName</span>
+                                <span class="cb-badge @(u.Type >= 1 ? "cb-role-admin" : "cb-role-member")">@u.RoleName</span>
                             </td>
                             <td>
                                 @if (u.Type == 0)

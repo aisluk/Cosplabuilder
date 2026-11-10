@@ -49,7 +49,7 @@ namespace Cosplabuilder.Controllers
                 return View("Index");
             }
 
-            string roleName = user.Type == 1 ? UserRoles.Admin : UserRoles.Member;
+            string roleName = user.Type >= 1 ? UserRoles.Admin : UserRoles.Member;
 
             var claims = new List<Claim>
             {
@@ -58,7 +58,8 @@ namespace Cosplabuilder.Controllers
                 new(ClaimTypes.Email, user.Email),
                 new(ClaimTypes.Role, roleName),
                 new("Currency", user.Currency),
-                new("Language", user.Language)
+                new("Language", user.Language),
+                new("AvatarUrl", ImageNameHasher.ResolveImageUrl(user.AvatarImage?.FilePath) ?? string.Empty)
             };
 
             var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);

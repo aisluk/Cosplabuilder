@@ -19,10 +19,7 @@ namespace Cosplabuilder.Controllers
             _emailService = emailService;
         }
 
-        // ====================================================================
         // 1. MVC GUI VIEWS
-        // ====================================================================
-
         [HttpGet("/projects")]
         [HttpGet("/Data")]
         [HttpGet("/Data/Index")]
@@ -170,7 +167,16 @@ namespace Cosplabuilder.Controllers
                 .Take(pageSize)
                 .ToListAsync();
 
-            vm.Materials = await _db.Materials.Include(m => m.MaterialImage).OrderBy(m => m.Name).ToListAsync();
+            int? currentUserId = UserAccess.GetUserId(User);
+            if (currentUserId.HasValue)
+            {
+                var ownedMatIds = await _emailService.GetOwnedMaterialIdsAsync(_db, currentUserId.Value);
+                vm.Materials = await _db.Materials
+                    .Include(m => m.MaterialImage)
+                    .Where(m => ownedMatIds.Contains(m.Id))
+                    .OrderBy(m => m.Name)
+                    .ToListAsync();
+            }
 
             return View("Index", vm);
         }
@@ -257,13 +263,24 @@ namespace Cosplabuilder.Controllers
 
             vm.TotalItems = await tasksQuery.CountAsync();
             vm.Tasks = await tasksQuery
-                .OrderBy(t => t.CompletionDate.HasValue)
-                .ThenBy(t => t.Id)
+                .OrderBy(t => t.CompletionDate.HasValue ? 1 : 0)
+                .ThenBy(t => t.CompletionDate.HasValue ? string.Empty : t.Type)
+                .ThenByDescending(t => t.CompletionDate)
+                .ThenByDescending(t => t.Id)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
 
-            vm.Materials = await _db.Materials.Include(m => m.MaterialImage).OrderBy(m => m.Name).ToListAsync();
+            int? currentUserId = UserAccess.GetUserId(User);
+            if (currentUserId.HasValue)
+            {
+                var ownedMatIds = await _emailService.GetOwnedMaterialIdsAsync(_db, currentUserId.Value);
+                vm.Materials = await _db.Materials
+                    .Include(m => m.MaterialImage)
+                    .Where(m => ownedMatIds.Contains(m.Id))
+                    .OrderBy(m => m.Name)
+                    .ToListAsync();
+            }
 
             return View("Index", vm);
         }
@@ -276,7 +293,8 @@ namespace Cosplabuilder.Controllers
         [HttpGet("/workshop/tools")]
         public async Task<IActionResult> Tools(string? search = null, string? type = null, int page = 1, int pageSize = 6)
         {
-            if (!UserAccess.IsAuthenticated(User))
+            int? currentUserId = UserAccess.GetUserId(User);
+            if (!currentUserId.HasValue)
             {
                 return RedirectToAction("Index", "Login");
             }
@@ -296,6 +314,7 @@ namespace Cosplabuilder.Controllers
                 .Include(t => t.ToolImage)
                 .Include(t => t.Owner)
                     .ThenInclude(u => u!.AvatarImage)
+                .Where(t => t.UserId == currentUserId.Value)
                 .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(search))
@@ -326,7 +345,8 @@ namespace Cosplabuilder.Controllers
         [HttpGet("/workshop/materials")]
         public async Task<IActionResult> Materials(string? search = null, string? type = null, int page = 1, int pageSize = 6)
         {
-            if (!UserAccess.IsAuthenticated(User))
+            int? currentUserId = UserAccess.GetUserId(User);
+            if (!currentUserId.HasValue)
             {
                 return RedirectToAction("Index", "Login");
             }
@@ -342,8 +362,11 @@ namespace Cosplabuilder.Controllers
             vm.CurrentPage = page;
             vm.PageSize = pageSize;
 
+            var ownedMatIds = await _emailService.GetOwnedMaterialIdsAsync(_db, currentUserId.Value);
+
             var materialsQuery = _db.Materials
                 .Include(m => m.MaterialImage)
+                .Where(m => ownedMatIds.Contains(m.Id))
                 .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(search))
@@ -369,11 +392,8 @@ namespace Cosplabuilder.Controllers
 
             return View("Index", vm);
         }
-
-        // ====================================================================
+        
         // 2. MVC FORM POST ACTIONS
-        // ====================================================================
-
         [HttpPost("/projects/form")]
         public async Task<IActionResult> SaveProjectForm(
             int? id,
@@ -384,10 +404,9 @@ namespace Cosplabuilder.Controllers
             int progress = 0,
             decimal? budget = null,
             string status = "Planned",
-            bool isPublic = true,
+            bool isPublic = false,
             DateTime? completionDate = null,
             IFormFile? imageFile = null,
-            string? imageUrl = null,
             string? imageAlt = null)
         {
             int? userId = UserAccess.GetUserId(User);
@@ -396,15 +415,24 @@ namespace Cosplabuilder.Controllers
                 return RedirectToAction("Index", "Login");
             }
 
-            if (string.IsNullOrWhiteSpace(name) || progress < 0 || progress > 100 || (budget.HasValue && budget.Value < 0))
+            bool invalidProgressType = ModelState.TryGetValue(nameof(progress), out var progState) && progState.Errors.Count > 0;
+            if (string.IsNullOrWhiteSpace(name) || invalidProgressType || progress < 0 || progress > 100 || (budget.HasValue && budget.Value < 0))
             {
-                TempData["FlashError"] = "Please provide a valid project name, progress (0..100), and non-negative budget.";
+                TempData["FlashError"] = "Please provide a valid project name, an integer progress (0..100), and non-negative budget.";
+                return RedirectToAction("Index");
+            }
+
+            if (imageFile != null && imageFile.Length > 0 && !ImageNameHasher.IsAllowedExtension(imageFile.FileName))
+            {
+                TempData["FlashError"] = "Unsupported image file format.";
                 return RedirectToAction("Index");
             }
 
             if (id.HasValue && id.Value > 0)
             {
-                var existing = await _db.Projects.FirstOrDefaultAsync(p => p.Id == id.Value);
+                var existing = await _db.Projects
+                    .Include(p => p.CoverImage)
+                    .FirstOrDefaultAsync(p => p.Id == id.Value);
                 if (existing == null)
                 {
                     return RedirectToAction("Error", "Home", new { code = 404, message = "Project not found." });
@@ -424,10 +452,21 @@ namespace Cosplabuilder.Controllers
                 existing.IsPublic = isPublic;
                 existing.CompletionDate = completionDate;
 
-                var img = await _emailService.SaveOrResolveImageAsync(_db, imageFile, imageUrl, imageAlt ?? existing.Name, userId.Value);
-                if (img != null)
+                if (imageFile != null && imageFile.Length > 0)
                 {
-                    existing.ImageId = img.Id;
+                    var img = await _emailService.SaveUploadedImageAsync(
+                        _db,
+                        imageFile,
+                        imageAlt ?? existing.Name,
+                        userId.Value);
+                    if (img != null)
+                    {
+                        existing.ImageId = img.Id;
+                    }
+                }
+                else if (existing.CoverImage != null && !string.IsNullOrWhiteSpace(imageAlt))
+                {
+                    existing.CoverImage.AltText = imageAlt.Trim();
                 }
 
                 await _db.SaveChangesAsync();
@@ -451,10 +490,13 @@ namespace Cosplabuilder.Controllers
                     UserId = userId.Value
                 };
 
-                var img = await _emailService.SaveOrResolveImageAsync(_db, imageFile, imageUrl, imageAlt ?? proj.Name, userId.Value);
-                if (img != null)
+                if (imageFile != null && imageFile.Length > 0)
                 {
-                    proj.ImageId = img.Id;
+                    var img = await _emailService.SaveUploadedImageAsync(_db, imageFile, imageAlt ?? proj.Name, userId.Value);
+                    if (img != null)
+                    {
+                        proj.ImageId = img.Id;
+                    }
                 }
 
                 _db.Projects.Add(proj);
@@ -475,9 +517,9 @@ namespace Cosplabuilder.Controllers
             int progress = 0,
             string type = "Other",
             IFormFile? imageFile = null,
-            string? imageUrl = null,
             string? imageAlt = null,
-            int? linkedMaterialId = null)
+            int[]? linkedMaterialIds = null,
+            bool syncMaterials = false)
         {
             int? userId = UserAccess.GetUserId(User);
             if (!userId.HasValue) return RedirectToAction("Index", "Login");
@@ -490,16 +532,25 @@ namespace Cosplabuilder.Controllers
                 return RedirectToAction("Error", "Home", new { code = 403, message = "You can only modify parts in your own projects." });
             }
 
-            if (string.IsNullOrWhiteSpace(name) || price < 0 || time < 0 || progress < 0 || progress > 100)
+            bool invalidPartProgressType = ModelState.TryGetValue(nameof(progress), out var partProgState) && partProgState.Errors.Count > 0;
+            if (string.IsNullOrWhiteSpace(name) || price < 0 || time < 0 || invalidPartProgressType || progress < 0 || progress > 100)
             {
-                TempData["FlashError"] = "Please ensure part name is provided, price/time >= 0, and progress is 0..100.";
+                TempData["FlashError"] = "Please ensure part name is provided, price/time >= 0, and progress is an integer 0..100.";
+                return RedirectToAction("ProjectDetails", new { projectId });
+            }
+
+            if (imageFile != null && imageFile.Length > 0 && !ImageNameHasher.IsAllowedExtension(imageFile.FileName))
+            {
+                TempData["FlashError"] = "Unsupported image file format.";
                 return RedirectToAction("ProjectDetails", new { projectId });
             }
 
             Part part;
             if (id.HasValue && id.Value > 0)
             {
-                var existing = await _db.Parts.FirstOrDefaultAsync(pt => pt.Id == id.Value && pt.ProjectId == projectId);
+                var existing = await _db.Parts
+                    .Include(pt => pt.PartImage)
+                    .FirstOrDefaultAsync(pt => pt.Id == id.Value && pt.ProjectId == projectId);
                 if (existing == null) return RedirectToAction("Error", "Home", new { code = 404, message = "Part not found in this project." });
 
                 existing.Name = name.Trim();
@@ -525,25 +576,149 @@ namespace Cosplabuilder.Controllers
                 _db.Parts.Add(part);
             }
 
-            var img = await _emailService.SaveOrResolveImageAsync(_db, imageFile, imageUrl, imageAlt ?? part.Name, userId.Value);
-            if (img != null)
+            if (imageFile != null && imageFile.Length > 0)
             {
-                part.ImageId = img.Id;
+                var img = await _emailService.SaveUploadedImageAsync(
+                    _db,
+                    imageFile,
+                    imageAlt ?? part.Name,
+                    userId.Value);
+                if (img != null)
+                {
+                    part.ImageId = img.Id;
+                }
+            }
+            else if (part.PartImage != null && !string.IsNullOrWhiteSpace(imageAlt))
+            {
+                part.PartImage.AltText = imageAlt.Trim();
             }
 
             await _db.SaveChangesAsync();
 
-            if (linkedMaterialId.HasValue && linkedMaterialId.Value > 0)
+            var ownedMatIds = await _emailService.GetOwnedMaterialIdsAsync(_db, userId.Value);
+            var selectedMatIds = (linkedMaterialIds ?? Array.Empty<int>())
+                .Where(mid => mid > 0 && ownedMatIds.Contains(mid))
+                .Distinct()
+                .ToList();
+
+            var existingUses = await _db.MaterialUses
+                .Where(mu => mu.PartId == part.Id)
+                .ToListAsync();
+
+            if (syncMaterials)
             {
-                bool alreadyLinked = await _db.MaterialUses.AnyAsync(mu => mu.PartId == part.Id && mu.MaterialId == linkedMaterialId.Value);
-                if (!alreadyLinked)
+                foreach (var mu in existingUses.Where(mu => ownedMatIds.Contains(mu.MaterialId) && !selectedMatIds.Contains(mu.MaterialId)))
                 {
-                    _db.MaterialUses.Add(new MaterialUse { PartId = part.Id, MaterialId = linkedMaterialId.Value });
-                    await _db.SaveChangesAsync();
+                    _db.MaterialUses.Remove(mu);
                 }
             }
 
+            foreach (int mid in selectedMatIds)
+            {
+                if (!existingUses.Any(mu => mu.MaterialId == mid))
+                {
+                    _db.MaterialUses.Add(new MaterialUse { PartId = part.Id, MaterialId = mid });
+                }
+            }
+
+            await _db.SaveChangesAsync();
+
             TempData["FlashSuccess"] = $"Part '{part.Name}' saved.";
+            return RedirectToAction("ProjectDetails", new { projectId });
+        }
+
+        [HttpPost("/projects/{projectId:int}/parts/{partId:int}/materials/link")]
+        public async Task<IActionResult> LinkMaterialsToPart(
+            int projectId,
+            int partId,
+            int[]? materialIds,
+            string? returnView = null)
+        {
+            int? userId = UserAccess.GetUserId(User);
+            if (!userId.HasValue) return RedirectToAction("Index", "Login");
+
+            var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId);
+            var part = await _db.Parts.FirstOrDefaultAsync(pt => pt.Id == partId && pt.ProjectId == projectId);
+            if (project == null || part == null)
+            {
+                return RedirectToAction("Error", "Home", new { code = 404, message = "Project or Part not found." });
+            }
+
+            if (!UserAccess.CanManageResource(User, project.UserId))
+            {
+                return RedirectToAction("Error", "Home", new { code = 403, message = "You can only link materials to your own project parts." });
+            }
+
+            var ownedMatIds = await _emailService.GetOwnedMaterialIdsAsync(_db, userId.Value);
+            var validMatIds = (materialIds ?? Array.Empty<int>())
+                .Where(mid => mid > 0 && ownedMatIds.Contains(mid))
+                .Distinct()
+                .ToList();
+
+            if (validMatIds.Count == 0)
+            {
+                TempData["FlashError"] = "Please select at least one owned material to link.";
+            }
+            else
+            {
+                var existingMatIds = await _db.MaterialUses
+                    .Where(mu => mu.PartId == partId)
+                    .Select(mu => mu.MaterialId)
+                    .ToListAsync();
+
+                int addedCount = 0;
+                foreach (int mid in validMatIds)
+                {
+                    if (!existingMatIds.Contains(mid))
+                    {
+                        _db.MaterialUses.Add(new MaterialUse { PartId = partId, MaterialId = mid });
+                        addedCount++;
+                    }
+                }
+
+                await _db.SaveChangesAsync();
+                TempData["FlashSuccess"] = addedCount > 0
+                    ? $"Linked {addedCount} material(s) to part '{part.Name}'."
+                    : "Selected material(s) are already linked to this part.";
+            }
+
+            if (string.Equals(returnView, "PartTasks", StringComparison.OrdinalIgnoreCase))
+            {
+                return RedirectToAction("PartTasks", new { projectId, partId });
+            }
+            return RedirectToAction("ProjectDetails", new { projectId });
+        }
+
+        [HttpPost("/projects/{projectId:int}/parts/{partId:int}/materials/{materialUseId:int}/unlink")]
+        public async Task<IActionResult> UnlinkMaterialFromPart(
+            int projectId,
+            int partId,
+            int materialUseId,
+            string? returnView = null)
+        {
+            int? userId = UserAccess.GetUserId(User);
+            if (!userId.HasValue) return RedirectToAction("Index", "Login");
+
+            var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId);
+            if (project == null) return RedirectToAction("Error", "Home", new { code = 404, message = "Project not found." });
+
+            if (!UserAccess.CanManageResource(User, project.UserId))
+            {
+                return RedirectToAction("Error", "Home", new { code = 403, message = "You can only unlink materials from your own project parts." });
+            }
+
+            var matUse = await _db.MaterialUses.FirstOrDefaultAsync(mu => mu.Id == materialUseId && mu.PartId == partId);
+            if (matUse != null)
+            {
+                _db.MaterialUses.Remove(matUse);
+                await _db.SaveChangesAsync();
+                TempData["FlashSuccess"] = "Material unlinked from part.";
+            }
+
+            if (string.Equals(returnView, "PartTasks", StringComparison.OrdinalIgnoreCase))
+            {
+                return RedirectToAction("PartTasks", new { projectId, partId });
+            }
             return RedirectToAction("ProjectDetails", new { projectId });
         }
 
@@ -614,7 +789,6 @@ namespace Cosplabuilder.Controllers
             string? link,
             string type = "Other",
             IFormFile? imageFile = null,
-            string? imageUrl = null,
             string? imageAlt = null)
         {
             int? userId = UserAccess.GetUserId(User);
@@ -631,6 +805,12 @@ namespace Cosplabuilder.Controllers
                 return RedirectToAction("ProjectDetails", new { projectId });
             }
 
+            if (imageFile != null && imageFile.Length > 0 && !ImageNameHasher.IsAllowedExtension(imageFile.FileName))
+            {
+                TempData["FlashError"] = "Unsupported image file format.";
+                return RedirectToAction("ProjectDetails", new { projectId });
+            }
+
             var reference = new Reference
             {
                 Name = name.Trim(),
@@ -642,14 +822,16 @@ namespace Cosplabuilder.Controllers
             _db.References.Add(reference);
             await _db.SaveChangesAsync();
 
-            // Save optional Reference Image linked via Image.fk_Referenceid_Reference
-            await _emailService.SaveOrResolveImageAsync(
-                _db,
-                imageFile,
-                imageUrl,
-                imageAlt ?? reference.Name,
-                userId.Value,
-                reference.Id);
+            // save optional reference image linked via Image.fk_Referenceid_Reference
+            if (imageFile != null && imageFile.Length > 0)
+            {
+                await _emailService.SaveUploadedImageAsync(
+                    _db,
+                    imageFile,
+                    imageAlt ?? reference.Name,
+                    userId.Value,
+                    reference.Id);
+            }
 
             TempData["FlashSuccess"] = "Reference added to project.";
             return RedirectToAction("ProjectDetails", new { projectId });
@@ -664,7 +846,6 @@ namespace Cosplabuilder.Controllers
             decimal price = 0m,
             string toolType = "Other",
             IFormFile? imageFile = null,
-            string? imageUrl = null,
             string? imageAlt = null)
         {
             int? userId = UserAccess.GetUserId(User);
@@ -676,10 +857,16 @@ namespace Cosplabuilder.Controllers
                 return RedirectToAction("Tools");
             }
 
+            if (imageFile != null && imageFile.Length > 0 && !ImageNameHasher.IsAllowedExtension(imageFile.FileName))
+            {
+                TempData["FlashError"] = "Unsupported image file format.";
+                return RedirectToAction("Tools");
+            }
+
             Tool tool;
             if (id.HasValue && id.Value > 0)
             {
-                var existing = await _db.Tools.FirstOrDefaultAsync(t => t.Id == id.Value);
+                var existing = await _db.Tools.Include(t => t.ToolImage).FirstOrDefaultAsync(t => t.Id == id.Value);
                 if (existing == null) return RedirectToAction("Error", "Home", new { code = 404, message = "Tool not found." });
                 if (!UserAccess.CanManageResource(User, existing.UserId))
                     return RedirectToAction("Error", "Home", new { code = 403, message = "Forbidden." });
@@ -703,10 +890,17 @@ namespace Cosplabuilder.Controllers
                 _db.Tools.Add(tool);
             }
 
-            var img = await _emailService.SaveOrResolveImageAsync(_db, imageFile, imageUrl, imageAlt ?? tool.Name, userId.Value);
-            if (img != null)
+            if (imageFile != null && imageFile.Length > 0)
             {
-                tool.ImageId = img.Id;
+                var img = await _emailService.SaveUploadedImageAsync(_db, imageFile, imageAlt ?? tool.Name, userId.Value);
+                if (img != null)
+                {
+                    tool.ImageId = img.Id;
+                }
+            }
+            else if (tool.ToolImage != null && !string.IsNullOrWhiteSpace(imageAlt))
+            {
+                tool.ToolImage.AltText = imageAlt.Trim();
             }
 
             await _db.SaveChangesAsync();
@@ -726,7 +920,6 @@ namespace Cosplabuilder.Controllers
             DateTime? buyDate = null,
             string materialType = "Other",
             IFormFile? imageFile = null,
-            string? imageUrl = null,
             string? imageAlt = null)
         {
             int? userId = UserAccess.GetUserId(User);
@@ -738,11 +931,23 @@ namespace Cosplabuilder.Controllers
                 return RedirectToAction("Materials");
             }
 
+            if (imageFile != null && imageFile.Length > 0 && !ImageNameHasher.IsAllowedExtension(imageFile.FileName))
+            {
+                TempData["FlashError"] = "Unsupported image file format.";
+                return RedirectToAction("Materials");
+            }
+
             Material mat;
             if (id.HasValue && id.Value > 0)
             {
-                var existing = await _db.Materials.FirstOrDefaultAsync(m => m.Id == id.Value);
+                var existing = await _db.Materials.Include(m => m.MaterialImage).FirstOrDefaultAsync(m => m.Id == id.Value);
                 if (existing == null) return RedirectToAction("Error", "Home", new { code = 404, message = "Material not found." });
+
+                var ownedMatIds = await _emailService.GetOwnedMaterialIdsAsync(_db, userId.Value);
+                if (!ownedMatIds.Contains(existing.Id))
+                {
+                    return RedirectToAction("Error", "Home", new { code = 403, message = "You can only edit your own materials." });
+                }
 
                 existing.Name = name.Trim();
                 existing.Description = description?.Trim();
@@ -768,21 +973,27 @@ namespace Cosplabuilder.Controllers
                 _db.Materials.Add(mat);
             }
 
-            var img = await _emailService.SaveOrResolveImageAsync(_db, imageFile, imageUrl, imageAlt ?? mat.Name, userId.Value);
-            if (img != null)
+            if (imageFile != null && imageFile.Length > 0)
             {
-                mat.ImageId = img.Id;
+                var img = await _emailService.SaveUploadedImageAsync(_db, imageFile, imageAlt ?? mat.Name, userId.Value);
+                if (img != null)
+                {
+                    mat.ImageId = img.Id;
+                }
+            }
+            else if (mat.MaterialImage != null && !string.IsNullOrWhiteSpace(imageAlt))
+            {
+                mat.MaterialImage.AltText = imageAlt.Trim();
             }
 
             await _db.SaveChangesAsync();
+            _emailService.SetMaterialOwner(mat.Id, userId.Value);
+
             TempData["FlashSuccess"] = $"Material '{mat.Name}' saved.";
             return RedirectToAction("Materials");
         }
 
-        // ====================================================================
         // 3. REST API ENDPOINTS — PROJECTS
-        // ====================================================================
-
         [HttpGet("/api/projects")]
         public async Task<IActionResult> ApiGetProjects(
             [FromQuery] string? search = null,
@@ -1138,10 +1349,7 @@ namespace Cosplabuilder.Controllers
             return NoContent();
         }
 
-        // ====================================================================
         // 4. REST API ENDPOINTS — PARTS
-        // ====================================================================
-
         [HttpGet("/api/parts")]
         [HttpGet("/api/projects/{projectId:int}/parts")]
         public async Task<IActionResult> ApiGetParts(
@@ -1463,10 +1671,7 @@ namespace Cosplabuilder.Controllers
             return NoContent();
         }
 
-        // ====================================================================
         // 5. REST API ENDPOINTS — TASKS
-        // ====================================================================
-
         [HttpGet("/api/tasks")]
         [HttpGet("/api/projects/{projectId:int}/parts/{partId:int}/tasks")]
         public async Task<IActionResult> ApiGetTasks(
@@ -1826,10 +2031,7 @@ namespace Cosplabuilder.Controllers
             return NoContent();
         }
 
-        // ====================================================================
         // 6. COMPOSITE DASHBOARD, IMAGES, TOOLS, MATERIALS & STATUS ENDPOINTS
-        // ====================================================================
-
         [HttpGet("/api/dashboard")]
         [HttpGet("/api/dashboard/{userId:int}")]
         public async Task<IActionResult> ApiGetCompositeDashboard(int? userId = null)
@@ -1856,7 +2058,8 @@ namespace Cosplabuilder.Controllers
                 .ToListAsync();
 
             var tools = await _db.Tools.Include(t => t.ToolImage).Where(t => t.UserId == user.Id).ToListAsync();
-            var materials = await _db.Materials.Include(m => m.MaterialImage).ToListAsync();
+            var ownedMatIds = await _emailService.GetOwnedMaterialIdsAsync(_db, user.Id);
+            var materials = await _db.Materials.Include(m => m.MaterialImage).Where(m => ownedMatIds.Contains(m.Id)).ToListAsync();
 
             var allParts = projects.SelectMany(p => p.Parts).ToList();
             var allTasks = allParts.SelectMany(pt => pt.Tasks).ToList();
@@ -2004,9 +2207,10 @@ namespace Cosplabuilder.Controllers
         [HttpGet("/api/tools")]
         public async Task<IActionResult> ApiGetTools()
         {
-            if (!UserAccess.IsAuthenticated(User))
+            int? currentUserId = UserAccess.GetUserId(User);
+            if (!currentUserId.HasValue)
                 return Unauthorized(new { status = 401, error = "Unauthorized" });
-            var items = await _db.Tools.Include(t => t.ToolImage).ToListAsync();
+            var items = await _db.Tools.Include(t => t.ToolImage).Where(t => t.UserId == currentUserId.Value).ToListAsync();
             return Ok(items);
         }
 
@@ -2026,18 +2230,27 @@ namespace Cosplabuilder.Controllers
         [HttpGet("/api/materials")]
         public async Task<IActionResult> ApiGetMaterials()
         {
-            if (!UserAccess.IsAuthenticated(User))
+            int? currentUserId = UserAccess.GetUserId(User);
+            if (!currentUserId.HasValue)
                 return Unauthorized(new { status = 401, error = "Unauthorized" });
-            var items = await _db.Materials.Include(m => m.MaterialImage).ToListAsync();
+            var ownedMatIds = await _emailService.GetOwnedMaterialIdsAsync(_db, currentUserId.Value);
+            var items = await _db.Materials.Include(m => m.MaterialImage).Where(m => ownedMatIds.Contains(m.Id)).ToListAsync();
             return Ok(items);
         }
 
         [HttpDelete("/api/materials/{materialId:int}")]
         public async Task<IActionResult> ApiDeleteMaterial(int materialId)
         {
-            if (!UserAccess.IsAuthenticated(User)) return Unauthorized(new { status = 401, error = "Unauthorized" });
+            int? currentUserId = UserAccess.GetUserId(User);
+            if (!currentUserId.HasValue) return Unauthorized(new { status = 401, error = "Unauthorized" });
             var mat = await _db.Materials.FirstOrDefaultAsync(m => m.Id == materialId);
             if (mat == null) return NotFound(new { status = 404, error = "Not Found" });
+
+            var ownedMatIds = await _emailService.GetOwnedMaterialIdsAsync(_db, currentUserId.Value);
+            if (!ownedMatIds.Contains(mat.Id))
+            {
+                return StatusCode(403, new { status = 403, error = "Forbidden" });
+            }
 
             _db.Materials.Remove(mat);
             await _db.SaveChangesAsync();

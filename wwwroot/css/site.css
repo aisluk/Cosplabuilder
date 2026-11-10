@@ -786,6 +786,44 @@ a:hover {
     display: flex;
     flex-wrap: wrap;
     gap: 0.4rem;
+    align-items: center;
+}
+
+.cb-checkbox-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(185px, 1fr));
+    gap: 0.45rem;
+    background-color: var(--cb-bg-input);
+    border: 1px solid var(--cb-border);
+    border-radius: 6px;
+    padding: 0.6rem 0.75rem;
+    max-height: 165px;
+    overflow-y: auto;
+}
+
+.cb-checkbox-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.86rem;
+    color: var(--cb-text);
+    cursor: pointer;
+}
+
+.cb-tag-unlink-btn {
+    background: transparent;
+    border: none;
+    color: #fca5a5;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 700;
+    padding: 0 0.2rem;
+    margin-left: 0.25rem;
+    line-height: 1;
+}
+
+.cb-tag-unlink-btn:hover {
+    color: #ffffff;
 }
 
 .cb-hidden {

@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace Cosplabuilder.Models
 {
     public class ErrorViewModel
@@ -16,12 +18,15 @@ namespace Cosplabuilder.Models
         public string? Fandom { get; set; }
         public string? Character { get; set; }
         public string? Description { get; set; }
+
+        [Range(0, 100, ErrorMessage = "Progress must be an integer between 0 and 100.")]
         public int Progress { get; set; } = 0;
+
         public DateTime? CreationDate { get; set; }
         public DateTime? CompletionDate { get; set; }
         public decimal? Budget { get; set; }
         public string Status { get; set; } = "Planned";
-        public bool IsPublic { get; set; } = true;
+        public bool IsPublic { get; set; } = false;
         public int? ImageId { get; set; }
         public int? UserId { get; set; }
     }
@@ -32,7 +37,10 @@ namespace Cosplabuilder.Models
         public string? Description { get; set; }
         public decimal Price { get; set; } = 0m;
         public decimal Time { get; set; } = 0m;
+
+        [Range(0, 100, ErrorMessage = "Progress must be an integer between 0 and 100.")]
         public int Progress { get; set; } = 0;
+
         public string Type { get; set; } = "Other";
         public int? ImageId { get; set; }
         public int ProjectId { get; set; }
@@ -104,7 +112,7 @@ namespace Cosplabuilder.Models
         public decimal TotalToolsCost => Tools.Sum(t => t.Price);
         public decimal TotalMaterialsCost => Materials.Sum(m => m.Price);
         public decimal TotalHoursLogged => Parts.Sum(p => p.Time) + Tasks.Sum(t => t.Time);
-        public int AverageProgress => Projects.Count > 0 ? (int)Math.Round(Projects.Average(p => p.Progress)) : 0;
+        public int AverageProgress => Projects.Count > 0 ? Math.Clamp((int)Math.Round(Projects.Average(p => p.Progress)), 0, 100) : 0;
 
         public List<string> Languages { get; set; } = new();
         public List<string> Currencies { get; set; } = new();

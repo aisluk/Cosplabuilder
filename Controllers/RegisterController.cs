@@ -38,9 +38,7 @@ namespace Cosplabuilder.Controllers
             string confirmPassword,
             string language = "English",
             string currency = "EUR",
-            IFormFile? avatarFile = null,
-            string? avatarUrl = null,
-            string? avatarAlt = null)
+            IFormFile? avatarFile = null)
         {
             await LoadLookupsAsync();
 
@@ -75,6 +73,13 @@ namespace Cosplabuilder.Controllers
                 return View("Index");
             }
 
+            if (avatarFile != null && avatarFile.Length > 0 && !ImageNameHasher.IsAllowedExtension(avatarFile.FileName))
+            {
+                HttpContext.Response.StatusCode = StatusCodes.Status422UnprocessableEntity;
+                ViewData["Error"] = "Unsupported image file extension.";
+                return View("Index");
+            }
+
             bool exists = await _db.Users.AnyAsync(u => u.Username == username || u.Email == email);
             if (exists)
             {
@@ -102,15 +107,15 @@ namespace Cosplabuilder.Controllers
             _db.Users.Add(newUser);
             await _db.SaveChangesAsync();
 
-            var img = await _emailService.SaveOrResolveImageAsync(
-                _db,
-                avatarFile,
-                avatarUrl,
-                string.IsNullOrWhiteSpace(avatarAlt) ? $"{username} icon" : avatarAlt,
-                newUser.Id);
-
-            if (img != null)
+            Image? img = null;
+            if (avatarFile != null && avatarFile.Length > 0)
             {
+                img = await _emailService.SaveUploadedImageAsync(
+                    _db,
+                    avatarFile,
+                    $"{username} avatar",
+                    newUser.Id);
+
                 newUser.ImageId = img.Id;
                 await _db.SaveChangesAsync();
             }
@@ -124,7 +129,8 @@ namespace Cosplabuilder.Controllers
                 new(ClaimTypes.Email, newUser.Email),
                 new(ClaimTypes.Role, UserRoles.Member),
                 new("Currency", newUser.Currency),
-                new("Language", newUser.Language)
+                new("Language", newUser.Language),
+                new("AvatarUrl", ImageNameHasher.ResolveImageUrl(img?.FilePath) ?? string.Empty)
             };
 
             var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);

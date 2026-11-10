@@ -63,25 +63,21 @@
                     <div class="cb-form-group">
                         <label class="cb-label">Visibility</label>
                         <select class="cb-select" name="isPublic">
-                            <option value="true" selected>Public</option>
-                            <option value="false">Private</option>
+                            <option value="false" selected>Private</option>
+                            <option value="true">Public</option>
                         </select>
                     </div>
                     <div class="cb-form-group">
                         <label class="cb-label">Progress (0–100%)</label>
-                        <input class="cb-input" type="number" name="progress" min="0" max="100" value="0" />
+                        <input class="cb-input" type="number" step="1" name="progress" min="0" max="100" value="0" />
                     </div>
                     <div class="cb-form-group">
                         <label class="cb-label">Budget</label>
                         <input class="cb-input" type="number" step="0.01" min="0" name="budget" placeholder="250.00" />
                     </div>
                     <div class="cb-form-group">
-                        <label class="cb-label">Upload Project Icon / Cover Photo</label>
+                        <label class="cb-label">Upload New Project Icon / Cover</label>
                         <input class="cb-input" type="file" name="imageFile" accept=".jpg,.jpeg,.png,.webp,.gif,.svg" />
-                    </div>
-                    <div class="cb-form-group">
-                        <label class="cb-label">Or Project Image URL / Path</label>
-                        <input class="cb-input" type="text" name="imageUrl" maxlength="500" placeholder="/uploads/... or https://..." />
                     </div>
                     <div class="cb-form-group">
                         <label class="cb-label">Image Alt Text</label>
@@ -256,7 +252,7 @@ else if (Model.ActiveView == "ProjectDetail" && Model.CurrentProject != null)
                             @(proj.IsPublic ? "Public" : "Private")
                         </span>
                         <span class="cb-badge cb-badge-type">@(proj.Fandom ?? "Cosplay")</span>
-                        <h1 class="cb-section-title cb-mt-1">@proj.Name (@(proj.Character ?? "Character"))</h1>
+                        <h1 class="cb-section-title cb-mt-1">@proj.Name@(!string.IsNullOrWhiteSpace(proj.Character) ? $" ({proj.Character})" : "")</h1>
                     </div>
                     <div class="cb-hero-actions">
                         @if (isAdmin)
@@ -325,7 +321,7 @@ else if (Model.ActiveView == "ProjectDetail" && Model.CurrentProject != null)
                     </div>
                     <div class="cb-form-group">
                         <label class="cb-label">Progress (%)</label>
-                        <input class="cb-input" type="number" name="progress" min="0" max="100" value="@proj.Progress" />
+                        <input class="cb-input" type="number" step="1" name="progress" min="0" max="100" value="@proj.Progress" />
                     </div>
                     <div class="cb-form-group">
                         <label class="cb-label">Budget</label>
@@ -334,10 +330,6 @@ else if (Model.ActiveView == "ProjectDetail" && Model.CurrentProject != null)
                     <div class="cb-form-group">
                         <label class="cb-label">Upload New Project Icon / Cover</label>
                         <input class="cb-input" type="file" name="imageFile" accept=".jpg,.jpeg,.png,.webp,.gif,.svg" />
-                    </div>
-                    <div class="cb-form-group">
-                        <label class="cb-label">Or Project Image URL / Path</label>
-                        <input class="cb-input" type="text" name="imageUrl" value="@proj.CoverImage?.FilePath" maxlength="500" placeholder="/uploads/... or https://..." />
                     </div>
                     <div class="cb-form-group">
                         <label class="cb-label">Project Image Alt Text</label>
@@ -379,30 +371,35 @@ else if (Model.ActiveView == "ProjectDetail" && Model.CurrentProject != null)
                     </div>
                     <div class="cb-form-group">
                         <label class="cb-label">Progress (0–100%)</label>
-                        <input class="cb-input" type="number" min="0" max="100" name="progress" value="0" />
+                        <input class="cb-input" type="number" step="1" min="0" max="100" name="progress" value="0" />
                     </div>
                     <div class="cb-form-group">
-                        <label class="cb-label">Link Workshop Material (optional)</label>
-                        <select class="cb-select" name="linkedMaterialId">
-                            <option value="">-- None --</option>
-                            @foreach (var m in Model.Materials)
-                            {
-                                <option value="@m.Id">@m.Name (@m.MaterialType)</option>
-                            }
-                        </select>
-                    </div>
-                    <div class="cb-form-group">
-                        <label class="cb-label">Upload Part Photo</label>
+                        <label class="cb-label">Upload New Part Photo</label>
                         <input class="cb-input" type="file" name="imageFile" accept=".jpg,.jpeg,.png,.webp,.gif,.svg" />
-                    </div>
-                    <div class="cb-form-group">
-                        <label class="cb-label">Or Part Image URL / Path</label>
-                        <input class="cb-input" type="text" name="imageUrl" maxlength="500" placeholder="/uploads/... or https://..." />
                     </div>
                     <div class="cb-form-group">
                         <label class="cb-label">Part Image Alt Text</label>
                         <input class="cb-input" type="text" name="imageAlt" maxlength="500" placeholder="Part photo description" />
                     </div>
+                </div>
+                <div class="cb-form-group">
+                    <label class="cb-label">Link Owned Materials (select one or more)</label>
+                    @if (Model.Materials.Count > 0)
+                    {
+                        <div class="cb-checkbox-grid">
+                            @foreach (var m in Model.Materials)
+                            {
+                                <label class="cb-checkbox-item">
+                                    <input type="checkbox" name="linkedMaterialIds" value="@m.Id" />
+                                    <span>@m.Name (@m.MaterialType)</span>
+                                </label>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <span class="cb-muted">You have no materials in your inventory yet. Add materials on the <a href="/materials">Materials</a> page.</span>
+                    }
                 </div>
                 <div class="cb-form-group">
                     <label class="cb-label">Fabrication Instructions / Notes</label>
@@ -458,20 +455,49 @@ else if (Model.ActiveView == "ProjectDetail" && Model.CurrentProject != null)
                     <h3 class="cb-card-title">@part.Name</h3>
                     <p class="cb-card-desc">@(part.Description ?? "No build notes.")</p>
 
-                    @if (part.MaterialUses.Count > 0)
+                    <div class="cb-tag-list">
+                        @foreach (var mu in part.MaterialUses.Where(x => x.Material != null))
+                        {
+                            string? matImgUrl = ImageNameHasher.ResolveImageUrl(mu.Material!.MaterialImage?.FilePath);
+                            <span class="cb-badge cb-status-planned">
+                                @if (!string.IsNullOrEmpty(matImgUrl))
+                                {
+                                    <img class="cb-inline-thumb" src="@matImgUrl" alt="@mu.Material.Name" />
+                                }
+                                Material: @mu.Material.Name
+                                @if (canManage)
+                                {
+                                    <form class="cb-inline-form" method="post" action="/projects/@proj.Id/parts/@part.Id/materials/@mu.Id/unlink">
+                                        <button type="submit" class="cb-tag-unlink-btn" title="Unlink material">&times;</button>
+                                    </form>
+                                }
+                            </span>
+                        }
+                        @if (canManage && Model.Materials.Count > 0)
+                        {
+                            <button type="button" class="cb-btn cb-btn-outline cb-btn-sm" data-toggle-target="link-mat-part-@part.Id">+ Link Material</button>
+                        }
+                    </div>
+
+                    @if (canManage && Model.Materials.Count > 0)
                     {
-                        <div class="cb-tag-list">
-                            @foreach (var mu in part.MaterialUses.Where(x => x.Material != null))
-                            {
-                                string? matImgUrl = ImageNameHasher.ResolveImageUrl(mu.Material!.MaterialImage?.FilePath);
-                                <span class="cb-badge cb-status-planned">
-                                    @if (!string.IsNullOrEmpty(matImgUrl))
-                                    {
-                                        <img class="cb-inline-thumb" src="@matImgUrl" alt="@mu.Material.Name" />
-                                    }
-                                    Material: @mu.Material.Name
-                                </span>
-                            }
+                        var linkedIds = part.MaterialUses.Select(x => x.MaterialId).ToHashSet();
+                        <div id="link-mat-part-@part.Id" class="cb-hidden cb-mt-1">
+                            <form method="post" action="/projects/@proj.Id/parts/@part.Id/materials/link">
+                                <div class="cb-form-group">
+                                    <label class="cb-label">Select Owned Materials to Link</label>
+                                    <div class="cb-checkbox-grid">
+                                        @foreach (var m in Model.Materials)
+                                        {
+                                            <label class="cb-checkbox-item">
+                                                <input type="checkbox" name="materialIds" value="@m.Id" disabled="@linkedIds.Contains(m.Id)" />
+                                                <span>@m.Name (@m.MaterialType) @(linkedIds.Contains(m.Id) ? "[Linked]" : "")</span>
+                                            </label>
+                                        }
+                                    </div>
+                                </div>
+                                <button type="submit" class="cb-btn cb-btn-primary cb-btn-sm">Link Selected Materials</button>
+                            </form>
                         </div>
                     }
 
@@ -551,10 +577,6 @@ else if (Model.ActiveView == "ProjectDetail" && Model.CurrentProject != null)
                         <div class="cb-form-group">
                             <label class="cb-label">Upload Reference Image</label>
                             <input class="cb-input" type="file" name="imageFile" accept=".jpg,.jpeg,.png,.webp,.gif,.svg" />
-                        </div>
-                        <div class="cb-form-group">
-                            <label class="cb-label">Or Reference Image URL / Path</label>
-                            <input class="cb-input" type="text" name="imageUrl" maxlength="500" placeholder="/uploads/... or https://..." />
                         </div>
                         <div class="cb-form-group">
                             <label class="cb-label">Reference Image Alt Text</label>
@@ -683,16 +705,64 @@ else if (Model.ActiveView == "PartTasks" && Model.CurrentProject != null && Mode
                     <span>Part Time: <strong>@part.Time.ToString("0.0") h</strong></span>
                     <span>Part Progress: <strong>@part.Progress%</strong></span>
                 </div>
+                <div class="cb-tag-list cb-mt-1">
+                    @foreach (var mu in part.MaterialUses.Where(x => x.Material != null))
+                    {
+                        string? matImgUrl = ImageNameHasher.ResolveImageUrl(mu.Material!.MaterialImage?.FilePath);
+                        <span class="cb-badge cb-status-planned">
+                            @if (!string.IsNullOrEmpty(matImgUrl))
+                            {
+                                <img class="cb-inline-thumb" src="@matImgUrl" alt="@mu.Material.Name" />
+                            }
+                            Material: @mu.Material.Name
+                            @if (canManage)
+                            {
+                                <form class="cb-inline-form" method="post" action="/projects/@proj.Id/parts/@part.Id/materials/@mu.Id/unlink">
+                                    <input type="hidden" name="returnView" value="PartTasks" />
+                                    <button type="submit" class="cb-tag-unlink-btn" title="Unlink material">&times;</button>
+                                </form>
+                            }
+                        </span>
+                    }
+                    @if (canManage && Model.Materials.Count > 0)
+                    {
+                        <button type="button" class="cb-btn cb-btn-outline cb-btn-sm" data-toggle-target="link-part-materials-header">+ Link Owned Materials</button>
+                    }
+                </div>
+                @if (canManage && Model.Materials.Count > 0)
+                {
+                    var linkedHeaderIds = part.MaterialUses.Select(x => x.MaterialId).ToHashSet();
+                    <div id="link-part-materials-header" class="cb-hidden cb-mt-1">
+                        <form method="post" action="/projects/@proj.Id/parts/@part.Id/materials/link">
+                            <input type="hidden" name="returnView" value="PartTasks" />
+                            <div class="cb-form-group">
+                                <label class="cb-label">Select Owned Materials to Link to '@part.Name'</label>
+                                <div class="cb-checkbox-grid">
+                                    @foreach (var m in Model.Materials)
+                                    {
+                                        <label class="cb-checkbox-item">
+                                            <input type="checkbox" name="materialIds" value="@m.Id" disabled="@linkedHeaderIds.Contains(m.Id)" />
+                                            <span>@m.Name (@m.MaterialType) @(linkedHeaderIds.Contains(m.Id) ? "[Linked]" : "")</span>
+                                        </label>
+                                    }
+                                </div>
+                            </div>
+                            <button type="submit" class="cb-btn cb-btn-primary cb-btn-sm">Link Selected Materials</button>
+                        </form>
+                    </div>
+                }
             </div>
         </div>
     </div>
 
     @if (canManage)
     {
+        var currentPartMatIds = part.MaterialUses.Select(x => x.MaterialId).ToHashSet();
         <section id="edit-part-panel" class="cb-panel cb-hidden">
-            <h2 class="cb-panel-title">Edit Costume Part &amp; Photo</h2>
+            <h2 class="cb-panel-title">Edit Costume Part, Linked Materials &amp; Photo</h2>
             <form method="post" action="/projects/@proj.Id/parts/form" enctype="multipart/form-data">
                 <input type="hidden" name="id" value="@part.Id" />
+                <input type="hidden" name="syncMaterials" value="true" />
                 <div class="cb-form-grid">
                     <div class="cb-form-group">
                         <label class="cb-label">Part Name *</label>
@@ -717,20 +787,35 @@ else if (Model.ActiveView == "PartTasks" && Model.CurrentProject != null && Mode
                     </div>
                     <div class="cb-form-group">
                         <label class="cb-label">Progress (0–100%)</label>
-                        <input class="cb-input" type="number" min="0" max="100" name="progress" value="@part.Progress" />
+                        <input class="cb-input" type="number" step="1" min="0" max="100" name="progress" value="@part.Progress" />
                     </div>
                     <div class="cb-form-group">
                         <label class="cb-label">Upload New Part Photo</label>
                         <input class="cb-input" type="file" name="imageFile" accept=".jpg,.jpeg,.png,.webp,.gif,.svg" />
                     </div>
                     <div class="cb-form-group">
-                        <label class="cb-label">Or Part Image URL / Path</label>
-                        <input class="cb-input" type="text" name="imageUrl" value="@part.PartImage?.FilePath" maxlength="500" placeholder="/uploads/... or https://..." />
-                    </div>
-                    <div class="cb-form-group">
                         <label class="cb-label">Part Image Alt Text</label>
                         <input class="cb-input" type="text" name="imageAlt" value="@part.PartImage?.AltText" maxlength="500" />
                     </div>
+                </div>
+                <div class="cb-form-group">
+                    <label class="cb-label">Linked Owned Materials (check/uncheck multiple)</label>
+                    @if (Model.Materials.Count > 0)
+                    {
+                        <div class="cb-checkbox-grid">
+                            @foreach (var m in Model.Materials)
+                            {
+                                <label class="cb-checkbox-item">
+                                    <input type="checkbox" name="linkedMaterialIds" value="@m.Id" checked="@currentPartMatIds.Contains(m.Id)" />
+                                    <span>@m.Name (@m.MaterialType)</span>
+                                </label>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <span class="cb-muted">No owned materials in inventory yet.</span>
+                    }
                 </div>
                 <div class="cb-form-group">
                     <label class="cb-label">Fabrication Instructions / Notes</label>
@@ -821,10 +906,12 @@ else if (Model.ActiveView == "PartTasks" && Model.CurrentProject != null && Mode
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var t in Model.Tasks)
+                    @for (int idx = 0; idx < Model.Tasks.Count; idx++)
                     {
+                        var t = Model.Tasks[idx];
+                        int relativeTaskNum = Model.TotalItems - ((Model.CurrentPage - 1) * Model.PageSize) - idx;
                         <tr>
-                            <td>#@t.Id</td>
+                            <td>@relativeTaskNum</td>
                             <td>
                                 <strong class="@(t.IsCompleted ? "cb-task-completed" : "")">@t.Name</strong>
                                 @if (!string.IsNullOrEmpty(t.Description))
@@ -931,10 +1018,6 @@ else if (Model.ActiveView == "Tools")
                         <input class="cb-input" type="file" name="imageFile" accept=".jpg,.jpeg,.png,.webp,.gif,.svg" />
                     </div>
                     <div class="cb-form-group">
-                        <label class="cb-label">Or Tool Image URL / Path</label>
-                        <input class="cb-input" type="text" name="imageUrl" maxlength="500" placeholder="/uploads/... or https://..." />
-                    </div>
-                    <div class="cb-form-group">
                         <label class="cb-label">Tool Image Alt Text</label>
                         <input class="cb-input" type="text" name="imageAlt" maxlength="500" placeholder="Tool photo description" />
                     </div>
@@ -1032,10 +1115,6 @@ else if (Model.ActiveView == "Tools")
                                     <input class="cb-input" type="file" name="imageFile" accept=".jpg,.jpeg,.png,.webp,.gif,.svg" />
                                 </div>
                                 <div class="cb-form-group">
-                                    <label class="cb-label">Or Image URL / Path</label>
-                                    <input class="cb-input" type="text" name="imageUrl" value="@tl.ToolImage?.FilePath" maxlength="500" />
-                                </div>
-                                <div class="cb-form-group">
                                     <label class="cb-label">Image Alt Text</label>
                                     <input class="cb-input" type="text" name="imageAlt" value="@tl.ToolImage?.AltText" maxlength="500" />
                                 </div>
@@ -1124,12 +1203,8 @@ else if (Model.ActiveView == "Materials")
                         <input class="cb-input" type="text" name="source" maxlength="255" placeholder="Local store, CosplayShop, etc." />
                     </div>
                     <div class="cb-form-group">
-                        <label class="cb-label">Upload Material Swatch Photo</label>
+                        <label class="cb-label">Upload Photo</label>
                         <input class="cb-input" type="file" name="imageFile" accept=".jpg,.jpeg,.png,.webp,.gif,.svg" />
-                    </div>
-                    <div class="cb-form-group">
-                        <label class="cb-label">Or Material Image URL / Path</label>
-                        <input class="cb-input" type="text" name="imageUrl" maxlength="500" placeholder="/uploads/... or https://..." />
                     </div>
                     <div class="cb-form-group">
                         <label class="cb-label">Material Image Alt Text</label>
@@ -1239,10 +1314,6 @@ else if (Model.ActiveView == "Materials")
                                 <div class="cb-form-group">
                                     <label class="cb-label">Upload New Material Swatch Image</label>
                                     <input class="cb-input" type="file" name="imageFile" accept=".jpg,.jpeg,.png,.webp,.gif,.svg" />
-                                </div>
-                                <div class="cb-form-group">
-                                    <label class="cb-label">Or Image URL / Path</label>
-                                    <input class="cb-input" type="text" name="imageUrl" value="@m.MaterialImage?.FilePath" maxlength="500" />
                                 </div>
                                 <div class="cb-form-group">
                                     <label class="cb-label">Image Alt Text</label>

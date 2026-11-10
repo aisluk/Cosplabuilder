@@ -94,7 +94,6 @@ B:\Darbai\saitynai\Cosplabuilder\obj\Debug\net10.0\staticwebassets.build.json.ca
 B:\Darbai\saitynai\Cosplabuilder\obj\Debug\net10.0\staticwebassets.development.json
 B:\Darbai\saitynai\Cosplabuilder\obj\Debug\net10.0\staticwebassets.build.endpoints.json
 B:\Darbai\saitynai\Cosplabuilder\obj\Debug\net10.0\swae.build.ex.cache
-B:\Darbai\saitynai\Cosplabuilder\obj\Debug\net10.0\staticwebassets.upToDateCheck.txt
 B:\Darbai\saitynai\Cosplabuilder\obj\Debug\net10.0\Cosplabu.AD954F45.Up2Date
 B:\Darbai\saitynai\Cosplabuilder\obj\Debug\net10.0\Cosplabuilder.dll
 B:\Darbai\saitynai\Cosplabuilder\obj\Debug\net10.0\refint\Cosplabuilder.dll
@@ -104,8 +103,10 @@ B:\Darbai\saitynai\Cosplabuilder\obj\Debug\net10.0\ref\Cosplabuilder.dll
 B:\Darbai\saitynai\Cosplabuilder\obj\Debug\net10.0\compressed\u0zmjmeqqm-{0}-fx4ycq0827-fx4ycq0827.gz
 B:\Darbai\saitynai\Cosplabuilder\obj\Debug\net10.0\compressed\vjwwv4wrqc-{0}-2btnsitge0-2btnsitge0.gz
 B:\Darbai\saitynai\Cosplabuilder\obj\Debug\net10.0\compressed\n01mztimkz-{0}-c8mhlt0m8f-c8mhlt0m8f.gz
-B:\Darbai\saitynai\Cosplabuilder\obj\Debug\net10.0\compressed\kstuwqp98c-{0}-wvt9e3fqay-wvt9e3fqay.gz
 B:\Darbai\saitynai\Cosplabuilder\obj\Debug\net10.0\compressed\mljjdzw2kq-{0}-sxmh0jgnyn-sxmh0jgnyn.gz
 B:\Darbai\saitynai\Cosplabuilder\obj\Debug\net10.0\compressed\qridf68i4z-{0}-x8h0wjaqkr-x8h0wjaqkr.gz
-B:\Darbai\saitynai\Cosplabuilder\obj\Debug\net10.0\compressed\bfqdej498s-{0}-j4lbdwuu8d-j4lbdwuu8d.gz
 B:\Darbai\saitynai\Cosplabuilder\obj\Debug\net10.0\compressed\6aly52tk9c-{0}-wzgt3mjck8-wzgt3mjck8.gz
+B:\Darbai\saitynai\Cosplabuilder\obj\Debug\net10.0\compressed\bfqdej498s-{0}-pg7o3yyi2n-pg7o3yyi2n.gz
+b:\Darbai\saitynai\Cosplabuilder\bin\Debug\net10.0\Properties\material_owners.json
+B:\Darbai\saitynai\Cosplabuilder\bin\Debug\net10.0\Cosplabuilder.postman_collection.json
+B:\Darbai\saitynai\Cosplabuilder\bin\Debug\net10.0\Cosplabuilder.postman_environment.json

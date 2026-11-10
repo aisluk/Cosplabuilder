@@ -16,6 +16,7 @@ namespace Cosplabuilder.Models
         [Column("Username")]
         public string Username { get; set; } = string.Empty;
 
+        // registered passwird is hashed before saving
         [Required]
         [MaxLength(255)]
         [EmailAddress]
@@ -29,7 +30,7 @@ namespace Cosplabuilder.Models
         public string PasswordHashed { get; set; } = string.Empty;
 
         /// <summary>
-        /// 0 = Member (Narys), 1 = Administrator (Administratorius). Unauthenticated = Guest (Svečias).
+        /// 0 = member, >= 1 = administrator, unauthenticated = Guest
         /// </summary>
         [Column("Type")]
         public short Type { get; set; } = 0;
@@ -51,6 +52,6 @@ namespace Cosplabuilder.Models
         public Image? AvatarImage { get; set; }
 
         [NotMapped]
-        public string RoleName => Type == 1 ? "Admin" : "Member";
+        public string RoleName => Type >= 1 ? "Admin" : "Member";
     }
 }

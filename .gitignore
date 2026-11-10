@@ -1,0 +1,58 @@
+# ==========================================================================
+# Cosplabuilder — .gitignore
+# ==========================================================================
+
+# Custom hashing helper classes (excluded from repository uploads)
+Helpers/PasswordHasher.cs
+Helpers/ImageNameHasher.cs
+**/PasswordHasher.cs
+**/ImageNameHasher.cs
+
+# Visual Studio / Rider / VS Code user & cache files
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.DotSettings.user
+
+# .NET Build results & NuGet outputs
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+out/
+publish/
+
+# Logs, crash dumps, and temporary files
+[Ll]og/
+[Ll]ogs/
+*.log
+*.tmp
+*.bak
+*.swp
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+# Postman files, collections, environments & Newman test reports
+*postman*
+*Postman*
+*.postman_collection.json
+*.postman_environment.json
+*.postman_globals.json
+.postman/
+newman/
+
+Helpers/PasswordHasher.cs
+Helpers/ImageNameHasher.cs

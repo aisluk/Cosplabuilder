@@ -2,6 +2,7 @@ using Cosplabuilder.Helpers;
 using Cosplabuilder.Models;
 using Cosplabuilder.Views.Data;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace Cosplabuilder.Services
 {
@@ -9,6 +10,7 @@ namespace Cosplabuilder.Services
     {
         private readonly ILogger<EmailService> _logger;
         private readonly IWebHostEnvironment _env;
+        private static readonly object _ownerFileLock = new();
 
         public EmailService(ILogger<EmailService> logger, IWebHostEnvironment env)
         {
@@ -22,28 +24,226 @@ namespace Cosplabuilder.Services
         }
 
         /// <summary>
-        /// Saves an uploaded IFormFile to wwwroot/uploads/ (and copies a backup to Media/)
+        /// Resolves the project root folder reliably even when launched from bin/Debug/...
+        /// </summary>
+        public static string GetProjectRootPath(IWebHostEnvironment env)
+        {
+            string root = !string.IsNullOrWhiteSpace(env.ContentRootPath)
+                ? env.ContentRootPath
+                : AppContext.BaseDirectory;
+
+            var dir = new DirectoryInfo(root);
+            while (dir != null)
+            {
+                if (File.Exists(Path.Combine(dir.FullName, "Cosplabuilder.csproj")))
+                {
+                    return dir.FullName;
+                }
+                dir = dir.Parent;
+            }
+
+            return root;
+        }
+
+        public static string GetUploadsFolderPath(IWebHostEnvironment env)
+        {
+            string webRoot = !string.IsNullOrWhiteSpace(env.WebRootPath)
+                ? env.WebRootPath
+                : Path.Combine(GetProjectRootPath(env), "wwwroot");
+
+            string uploads = Path.Combine(webRoot, "uploads");
+            Directory.CreateDirectory(uploads);
+            return uploads;
+        }
+
+        public static string GetMediaFolderPath(IWebHostEnvironment env)
+        {
+            string media = Path.Combine(GetProjectRootPath(env), "Media");
+            Directory.CreateDirectory(media);
+            return media;
+        }
+
+        private string GetMaterialOwnersFilePath()
+        {
+            string propsDir = Path.Combine(GetProjectRootPath(_env), "Properties");
+            Directory.CreateDirectory(propsDir);
+            return Path.Combine(propsDir, "material_owners.json");
+        }
+
+        private Dictionary<int, int> LoadMaterialOwnerMap()
+        {
+            lock (_ownerFileLock)
+            {
+                string path = GetMaterialOwnersFilePath();
+                if (File.Exists(path))
+                {
+                    try
+                    {
+                        string json = File.ReadAllText(path);
+                        var dict = JsonSerializer.Deserialize<Dictionary<int, int>>(json);
+                        if (dict != null)
+                            return dict;
+                    }
+                    catch
+                    {
+                        // fallback to default map
+                    }
+                }
+
+                var initial = new Dictionary<int, int>
+                {
+                    [1] = 2,
+                    [2] = 2,
+                    [3] = 1,
+                    [4] = 1,
+                    [5] = 1,
+                    [6] = 1,
+                    [7] = 1,
+                    [8] = 1,
+                    [9] = 1
+                };
+                SaveMaterialOwnerMap(initial);
+                return initial;
+            }
+        }
+
+        private void SaveMaterialOwnerMap(Dictionary<int, int> map)
+        {
+            lock (_ownerFileLock)
+            {
+                try
+                {
+                    string path = GetMaterialOwnersFilePath();
+                    string json = JsonSerializer.Serialize(map, new JsonSerializerOptions { WriteIndented = true });
+                    File.WriteAllText(path, json);
+                }
+                catch
+                {
+                    // ignore if read-only
+                }
+            }
+        }
+
+        public void SetMaterialOwner(int materialId, int userId)
+        {
+            if (materialId <= 0 || userId <= 0) return;
+            var map = LoadMaterialOwnerMap();
+            map[materialId] = userId;
+            SaveMaterialOwnerMap(map);
+        }
+
+        /// <summary>
+        /// Determines the owner UserId for every material in the database using Image.UserId,
+        /// the material_owners map, or MaterialUse -> Part -> Project.UserId.
+        /// </summary>
+        public async Task<HashSet<int>> GetOwnedMaterialIdsAsync(AppDBContext db, int userId)
+        {
+            var map = LoadMaterialOwnerMap();
+            var allMaterials = await db.Materials
+                .AsNoTracking()
+                .Include(m => m.MaterialImage)
+                .ToListAsync();
+
+            var materialUseOwners = await db.MaterialUses
+                .AsNoTracking()
+                .Include(mu => mu.Part)
+                    .ThenInclude(pt => pt!.Project)
+                .Where(mu => mu.Part != null && mu.Part.Project != null)
+                .Select(mu => new { mu.MaterialId, OwnerId = mu.Part!.Project!.UserId })
+                .ToListAsync();
+
+            var ownerByUse = materialUseOwners
+                .GroupBy(x => x.MaterialId)
+                .ToDictionary(g => g.Key, g => g.First().OwnerId);
+
+            var ownedIds = new HashSet<int>();
+            foreach (var m in allMaterials)
+            {
+                int? ownerId = null;
+                if (m.MaterialImage?.UserId != null)
+                {
+                    ownerId = m.MaterialImage.UserId.Value;
+                }
+                else if (map.TryGetValue(m.Id, out int mappedUser))
+                {
+                    ownerId = mappedUser;
+                }
+                else if (ownerByUse.TryGetValue(m.Id, out int useOwner))
+                {
+                    ownerId = useOwner;
+                }
+
+                if (ownerId == userId)
+                {
+                    ownedIds.Add(m.Id);
+                }
+            }
+
+            return ownedIds;
+        }
+
+        /// <summary>
+        /// Synchronizes files between wwwroot/uploads/ and Media/ so both directories contain all uploaded images.
+        /// </summary>
+        public static void SyncUploadsAndMediaFolders(IWebHostEnvironment env)
+        {
+            string uploadsFolder = GetUploadsFolderPath(env);
+            string mediaFolder = GetMediaFolderPath(env);
+
+            foreach (string uploadFile in Directory.GetFiles(uploadsFolder))
+            {
+                string fileName = Path.GetFileName(uploadFile);
+                string targetMediaPath = Path.Combine(mediaFolder, fileName);
+                if (!File.Exists(targetMediaPath))
+                {
+                    using var src = new FileStream(uploadFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                    using var dst = new FileStream(targetMediaPath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+                    src.CopyTo(dst);
+                }
+            }
+
+            foreach (string mediaFile in Directory.GetFiles(mediaFolder))
+            {
+                string fileName = Path.GetFileName(mediaFile);
+                string targetUploadPath = Path.Combine(uploadsFolder, fileName);
+                if (!File.Exists(targetUploadPath))
+                {
+                    using var src = new FileStream(mediaFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                    using var dst = new FileStream(targetUploadPath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+                    src.CopyTo(dst);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Saves an uploaded IFormFile directly from memory to both wwwroot/uploads/ and Media/
         /// using a randomized SHA-256 hashed filename, and creates the Image record in MySQL.
         /// </summary>
         public async Task<Image> SaveUploadedImageAsync(AppDBContext db, IFormFile file, string? altText, int? userId, int? referenceId = null)
         {
-            string uploadsFolder = Path.Combine(_env.WebRootPath, "uploads");
-            Directory.CreateDirectory(uploadsFolder);
-
-            string mediaFolder = Path.Combine(_env.ContentRootPath, "Media");
-            Directory.CreateDirectory(mediaFolder);
+            string uploadsFolder = GetUploadsFolderPath(_env);
+            string mediaFolder = GetMediaFolderPath(_env);
 
             string hashedFileName = ImageNameHasher.GenerateHashedFileName(file.FileName, userId);
-            string fullDiskPath = Path.Combine(uploadsFolder, hashedFileName);
+            string fullUploadsPath = Path.Combine(uploadsFolder, hashedFileName);
+            string fullMediaPath = Path.Combine(mediaFolder, hashedFileName);
 
-            await using (var stream = new FileStream(fullDiskPath, FileMode.Create))
+            using var memoryBuffer = new MemoryStream();
+            await file.CopyToAsync(memoryBuffer);
+            byte[] fileBytes = memoryBuffer.ToArray();
+
+            // Write directly from memory buffer to wwwroot/uploads/ and Media/ (avoids file-watcher locks on File.Copy)
+            await using (var uploadStream = new FileStream(fullUploadsPath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite))
             {
-                await file.CopyToAsync(stream);
+                await uploadStream.WriteAsync(fileBytes);
+                await uploadStream.FlushAsync();
             }
 
-            // Also keep a copy in the project's Media/ folder
-            string mediaCopyPath = Path.Combine(mediaFolder, hashedFileName);
-            File.Copy(fullDiskPath, mediaCopyPath, overwrite: true);
+            await using (var mediaStream = new FileStream(fullMediaPath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite))
+            {
+                await mediaStream.WriteAsync(fileBytes);
+                await mediaStream.FlushAsync();
+            }
 
             var image = new Image
             {
@@ -59,52 +259,19 @@ namespace Cosplabuilder.Services
             return image;
         }
 
-        /// <summary>
-        /// Saves either an uploaded file or an explicit image URL/path as an Image record in the database.
-        /// </summary>
-        public async Task<Image?> SaveOrResolveImageAsync(
-            AppDBContext db,
-            IFormFile? file,
-            string? imageUrl,
-            string? altText,
-            int? userId,
-            int? referenceId = null)
-        {
-            if (file != null && file.Length > 0 && ImageNameHasher.IsAllowedExtension(file.FileName))
-            {
-                return await SaveUploadedImageAsync(db, file, altText, userId, referenceId);
-            }
-
-            if (!string.IsNullOrWhiteSpace(imageUrl))
-            {
-                string? normalized = ImageNameHasher.ResolveImageUrl(imageUrl);
-                if (!string.IsNullOrEmpty(normalized))
-                {
-                    var image = new Image
-                    {
-                        FilePath = normalized,
-                        UploadDate = DateTime.UtcNow,
-                        AltText = string.IsNullOrWhiteSpace(altText) ? "Image" : altText.Trim(),
-                        UserId = userId,
-                        ReferenceId = referenceId
-                    };
-
-                    db.Images.Add(image);
-                    await db.SaveChangesAsync();
-                    return image;
-                }
-            }
-
-            return null;
-        }
-
         public static async System.Threading.Tasks.Task EnsureSeedDataAsync(AppDBContext db, IWebHostEnvironment env)
         {
             try
             {
-                Directory.CreateDirectory(Path.Combine(env.WebRootPath, "uploads"));
-                Directory.CreateDirectory(Path.Combine(env.ContentRootPath, "Media"));
+                SyncUploadsAndMediaFolders(env);
+            }
+            catch
+            {
+                // ignore file sync issues on read-only mounts
+            }
 
+            try
+            {
                 if (!await db.TaskTypes.AnyAsync())
                 {
                     foreach (var name in new[] { "Buy", "Make", "Order", "Test", "Research", "Photograph" })
@@ -142,6 +309,7 @@ namespace Cosplabuilder.Services
                 }
                 if (!await db.Currencies.AnyAsync())
                 {
+                    // might add more later
                     var currencies = new (string Code, string Name)[]
                     {
                         ("EUR", "Euro"), ("USD", "US Dollar"), ("AUD", "Australian Dollar"),
@@ -155,7 +323,7 @@ namespace Cosplabuilder.Services
             }
             catch
             {
-                // Ignore if database connection is not yet ready
+                // ignore if database connection is not yet ready
             }
         }
     }

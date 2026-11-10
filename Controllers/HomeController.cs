@@ -30,6 +30,7 @@ namespace Cosplabuilder.Controllers
                 var projectsQuery = _db.Projects
                     .Include(p => p.CoverImage)
                     .Include(p => p.Owner)
+                        .ThenInclude(u => u!.AvatarImage)
                     .Include(p => p.Parts)
                     .AsQueryable();
 
@@ -57,7 +58,7 @@ namespace Cosplabuilder.Controllers
             }
             catch
             {
-                // Graceful fallback if DB is initializing
+                // graceful fallback if DB is initializing
             }
 
             return View(model);

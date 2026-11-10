@@ -1,4 +1,6 @@
 @using Cosplabuilder.Helpers
+@using Microsoft.EntityFrameworkCore
+@inject Cosplabuilder.Views.Data.AppDBContext DbContext
 @{
     bool isAuth = UserAccess.IsAuthenticated(User);
     bool isAdmin = UserAccess.IsAdmin(User);
@@ -7,6 +9,41 @@
     string roleClass = role == UserRoles.Admin
         ? "cb-badge cb-role-admin"
         : (role == UserRoles.Member ? "cb-badge cb-role-member" : "cb-badge cb-role-guest");
+
+    string defaultAvatarSvg = "data:image/svg+xml;utf8," + Uri.EscapeDataString(
+        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>" +
+        "<rect width='64' height='64' fill='#1e1b4b'/>" +
+        "<circle cx='32' cy='24' r='12' fill='#8b5cf6'/>" +
+        "<path d='M12 56c0-11 9-18 20-18s20 7 20 18' fill='#8b5cf6'/>" +
+        "</svg>");
+
+    string? navAvatarUrl = null;
+    if (isAuth)
+    {
+        int? currentUid = UserAccess.GetUserId(User);
+        if (currentUid.HasValue)
+        {
+            try
+            {
+                string? dbPath = DbContext.Users
+                    .AsNoTracking()
+                    .Include(u => u.AvatarImage)
+                    .Where(u => u.Id == currentUid.Value)
+                    .Select(u => u.AvatarImage != null ? u.AvatarImage.FilePath : null)
+                    .FirstOrDefault();
+                navAvatarUrl = ImageNameHasher.ResolveImageUrl(dbPath);
+            }
+            catch
+            {
+                navAvatarUrl = null;
+            }
+        }
+
+        if (string.IsNullOrEmpty(navAvatarUrl))
+        {
+            navAvatarUrl = ImageNameHasher.ResolveImageUrl(User.FindFirst("AvatarUrl")?.Value);
+        }
+    }
 }
 <!DOCTYPE html>
 <html lang="en">
@@ -42,7 +79,10 @@
                 <span class="@roleClass">@role</span>
                 @if (isAuth)
                 {
-                    <a class="cb-btn cb-btn-outline cb-btn-sm" href="/profile">@username</a>
+                    <a class="cb-btn cb-btn-outline cb-btn-sm" href="/profile">
+                        <img class="cb-avatar-sm" src="@(string.IsNullOrEmpty(navAvatarUrl) ? defaultAvatarSvg : navAvatarUrl)" alt="@username avatar" />
+                        <span>@username</span>
+                    </a>
                     <form class="cb-inline-form" method="post" action="/logout">
                         <button type="submit" class="cb-btn cb-btn-secondary cb-btn-sm">Sign Out</button>
                     </form>
